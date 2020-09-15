@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pipelinewatch
+  namespace: greenroom
+  labels:
+    app: pipelinewatch
+    env: charite
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: pipelinewatch
+      env: charite
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 33%
+  template:
+    metadata:
+      labels:
+        app: pipelinewatch
+        env: charite
+    spec:
+      serviceAccountName: consumer-serviceaccount
+      containers:
+        - name: pipelinewatch
+          image: 10.32.42.225:5000/pipelinewatch:<VERSION>
+          ports:
+            - containerPort: 6063
+          env:
+          - name: env
+            value: "charite"
+          readinessProbe:
+            tcpSocket:
+              port: 6063
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              memory: "500Mi"
+              cpu: "500m"
+            limits:
+              memory: "500Mi"
+              cpu: "500m"
+      nodeSelector:
+        namespace: greenroom
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pipelinewatch
+  namespace: greenroom
+  labels:
+    app: pipelinewatch
+    env: charite
+spec:
+  ports:
+  - name: http
+    port: 6063
+    targetPort: 6063
+    nodeport:
+  selector:
+    app: pipelinewatch
+    env: charite
+  type: ClusterIP
