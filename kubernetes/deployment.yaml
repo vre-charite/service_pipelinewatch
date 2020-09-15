@@ -7,7 +7,7 @@ metadata:
     app: pipelinewatch
     env: charite
 spec:
-  replicas: 3
+  replicas: 1
   selector:
     matchLabels:
       app: pipelinewatch
@@ -32,11 +32,11 @@ spec:
           env:
           - name: env
             value: "charite"
-          readinessProbe:
-            tcpSocket:
-              port: 6063
-            initialDelaySeconds: 5
-            periodSeconds: 10
+#          readinessProbe:
+#            tcpSocket:
+#              port: 6063
+#            initialDelaySeconds: 5
+#            periodSeconds: 10
           resources:
             requests:
               memory: "500Mi"
