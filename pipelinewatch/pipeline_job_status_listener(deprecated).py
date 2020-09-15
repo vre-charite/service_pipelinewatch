@@ -31,7 +31,8 @@ class PipelineJobStatusListener:
                 raw_file_name = decoded_input_path[5]
                 split_raw_file_name = os.path.splitext(raw_file_name)
                 file_name = split_raw_file_name[0] + '_edited' + split_raw_file_name[1]
-                file_path = output_path + "/" + file_name
+                # file_path = output_path + "/" + file_name
+                file_path = output_path
                 processed_file_size = 0
                 if my_final_status == 'succeeded':
                     try:
