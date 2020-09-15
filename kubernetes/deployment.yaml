@@ -32,11 +32,6 @@ spec:
           env:
           - name: env
             value: "charite"
-#          readinessProbe:
-#            tcpSocket:
-#              port: 6063
-#            initialDelaySeconds: 5
-#            periodSeconds: 10
           resources:
             requests:
               memory: "500Mi"
@@ -44,8 +39,15 @@ spec:
             limits:
               memory: "500Mi"
               cpu: "500m"
+          volumeMounts:
+          - name: nfsvol
+            mountPath: /data/vre-storage
       nodeSelector:
         namespace: greenroom
+      volumes:
+      - name: nfsvol
+        persistentVolumeClaim:
+          claimName: greenroom-storage
 ---
 apiVersion: v1
 kind: Service
