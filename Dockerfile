@@ -7,6 +7,6 @@ COPY .  ./
 RUN chown -R deploy:deploy /home/deploy
 USER deploy
 RUN chmod +x /home/deploy/gunicorn_starter.sh
-RUN http_proxy="http://proxy.charite.de:8080/" pip3 install --no-cache-dir -r requirements.txt --user
+RUN pip install --no-cache-dir -r requirements.txt --user --proxy="http://proxy.charite.de:8080/"
 ENV PATH="/home/deploy/.local/bin:${PATH}"
 CMD ["./gunicorn_starter.sh"]
