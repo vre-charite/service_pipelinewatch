@@ -35,6 +35,7 @@ spec:
           securityContext:
             runAsUser: 144171
             runAsGroup: 100100
+            fsGroup: 100100
           resources:
             requests:
               memory: "500Mi"
