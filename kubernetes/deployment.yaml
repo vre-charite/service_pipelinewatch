@@ -23,10 +23,6 @@ spec:
         app: pipelinewatch
         env: charite
     spec:
-      securityContext:
-        runAsUser: 144171
-        runAsGroup: 100100
-        fsGroup: 100100
       serviceAccountName: consumer-serviceaccount
       containers:
         - name: pipelinewatch
