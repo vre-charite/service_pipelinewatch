@@ -13,6 +13,9 @@ class ConfigClass(object):
     #data ops url
     data_ops_host = "http://dataops-gr.greenroom:5063"
 
+    #service_cateloguing
+    service_cateloguing = "http://cataloguing.utility:5064"
+
     #k8s_namespace
     k8s_namespace = "greenroom"
 

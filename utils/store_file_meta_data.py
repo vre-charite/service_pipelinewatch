@@ -12,7 +12,7 @@ def store_file_meta_data(path, bucket_name, file_name, raw_file_path, size, pipe
         "file_name": file_name,
         "raw_file_path": raw_file_path,
         "size": size,
-        "pipeline": pipeline,
+        "process_pipeline": pipeline,
         "job_name": job_name,
         "status": status
     }
@@ -22,4 +22,4 @@ def store_file_meta_data(path, bucket_name, file_name, raw_file_path, size, pipe
             json=payload
     )
     _logger.info('Meta Saved: ' + file_name + "  result: " + res.text)
-    return json.loads(res.text)
+    return res.json()

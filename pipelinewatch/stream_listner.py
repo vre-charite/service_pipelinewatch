@@ -1,5 +1,6 @@
 from kubernetes import watch
 from utils.store_file_meta_data import store_file_meta_data
+from utils.lineage_operations import create_lineage
 from config import ConfigClass
 from services.logger_services.logger_factory_service import SrvLoggerFactory
 import os
@@ -52,8 +53,16 @@ class StreamWatcher:
                         job_name,
                         my_final_status
                     )
+                    create_lineage(
+                        input_path,
+                        file_path,
+                        bucket_name,
+                        pipeline,
+                        'Pipeline Processed File'
+                    )
                 try:
-                    dele_res = self.batch_api.delete_namespaced_job(job_name, ConfigClass.k8s_namespace, propagation_policy="Foreground")
+                    dele_res = self.batch_api.delete_namespaced_job(
+                        job_name, ConfigClass.k8s_namespace, propagation_policy="Foreground")
                     self._logger.info(dele_res)
                     self._logger.info("Deleted job: " + job_name)
                 except Exception as e:
