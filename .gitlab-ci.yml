@@ -18,5 +18,7 @@ deploy:
   tags:
     - VRE-Deployment
   script:
-    - sed -i "s/<VERSION>/${CI_COMMIT_SHORT_SHA}/g" kubernetes/deployment.yaml
-    - kubectl apply -f kubernetes/deployment.yaml
+    - sed -i "s/<VERSION>/${CI_COMMIT_SHORT_SHA}/g" kubernetes/airflow-deployment.yaml
+    - sed -i "s/<VERSION>/${CI_COMMIT_SHORT_SHA}/g" kubernetes/k8sjob-deployment.yaml
+    - kubectl apply -f kubernetes/airflow-deployment.yaml
+    - kubectl apply -f kubernetes/k8sjob-deployment.yaml

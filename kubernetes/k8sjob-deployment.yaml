@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pipelinewatch-k8s-job
+  namespace: greenroom
+  labels:
+    app: pipelinewatch-k8s-job
+    env: charite
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pipelinewatch-k8s-job
+      env: charite
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 33%
+  template:
+    metadata:
+      labels:
+        app: pipelinewatch-k8s-job
+        env: charite
+    spec:
+      serviceAccountName: consumer-serviceaccount
+      containers:
+        - name: pipelinewatch-k8s-job
+          image: 10.32.42.225:5000/pipelinewatch:<VERSION>
+          ports:
+            - containerPort: 6063
+          env:
+          - name: env
+            value: "charite"
+          command: ["/home/deploy/worker_k8s_job_watch.py"]
+          resources:
+            requests:
+              memory: "500Mi"
+              cpu: "500m"
+            limits:
+              memory: "500Mi"
+              cpu: "500m"
+          volumeMounts:
+          - name: nfsvol
+            mountPath: /data/vre-storage
+          - name: nfsvol-vre-data
+            mountPath: /vre-data
+      nodeSelector:
+        namespace: greenroom
+      volumes:
+      - name: nfsvol
+        persistentVolumeClaim:
+          claimName: greenroom-storage
+      - name: nfsvol-vre-data
+        persistentVolumeClaim:
+          claimName: greenroom-vre-storage
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pipelinewatch-k8s-job
+  namespace: greenroom
+  labels:
+    app: pipelinewatch-k8s-job
+    env: charite
+spec:
+  ports:
+  - name: http
+    port: 6063
+    targetPort: 6063
+    nodeport:
+  selector:
+    app: pipelinewatch-k8s-job
+    env: charite
+  type: ClusterIP
