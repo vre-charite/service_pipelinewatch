@@ -2,7 +2,7 @@ from config import ConfigClass
 from services.logger_services.logger_factory_service import SrvLoggerFactory
 import requests
 
-def create_lineage(inputFullPath, outputFullPath, projectCode, pipelineName, description):
+def create_lineage(inputFullPath, outputFullPath, projectCode, pipelineName, description, create_time):
     '''
     create lineage
     payload = {
@@ -21,8 +21,9 @@ def create_lineage(inputFullPath, outputFullPath, projectCode, pipelineName, des
         "projectCode": projectCode,
         "pipelineName": pipelineName,
         "description": description,
+        'process_timestamp': create_time
     }
-    _logger.info("Creating Lineage: " + str(payload))
+    _logger.debug("Creating Lineage: " + str(payload))
     res = requests.post(
             url=my_url + '/v1/lineage',
             json=payload

@@ -1,6 +1,6 @@
 from utils.k8s_client_factory import get_k8s_batchapi
 from utils.loopper import loop_start
-from utils.store_file_meta_data import store_file_meta_data
+from utils.meta_data_operations import store_file_meta_data
 from config import ConfigClass
 import os
 import logging
