@@ -46,3 +46,6 @@ class ConfigClass(object):
         'staging': '8EH6QmEYJN',
         'charite': 'o2x7vGQx6m'
     }.get(env, "5wCCMMC1Lk")
+
+    # system tags
+    copied_with_approval = 'copied-to-core'

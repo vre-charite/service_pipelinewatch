@@ -1,6 +1,7 @@
 from kubernetes import watch
-from utils.meta_data_operations import store_file_meta_data
+from utils.meta_data_operations import store_file_meta_data, add_copied_with_approval
 from utils.lineage_operations import create_lineage
+from utils.file_opertion_status import update_file_operation_status, EDataActionType, update_file_operation_logs
 from config import ConfigClass
 from services.logger_services.logger_factory_service import SrvLoggerFactory
 import os, datetime
@@ -93,6 +94,14 @@ class StreamWatcher:
         output_full_path = annotations["output_path"]
         output_file_name = os.path.basename(output_full_path)
         project_code = annotations["project"] if annotations.get("project") else ConfigClass.tvb_project_code
+        generate_id = annotations.get("generate_id", "undefined")
+        uploader = annotations.get("uploader")
+        session_id = annotations.get('event_payload_session_id', 'default_session')
+        job_id = annotations.get('event_payload_job_id', 'default_job')
+        operator = annotations.get('event_payload_operator', 'admin')
+        operation_type = annotations.get('event_payload_operation_type', 0) 
+        self._logger.debug("_on_data_transfer_succeed generate_id: " + generate_id)
+        self._logger.debug("_on_data_transfer_succeed annotations: " + str(annotations))
         unix_process_time = datetime.datetime.utcnow().timestamp()
         processed_file_size = 0
         try:
@@ -110,7 +119,9 @@ class StreamWatcher:
                 processed_file_size,
                 EPipelineName.data_transfer.name,
                 job_name,
-                "succeeded"
+                "succeeded",
+                generate_id,
+                uploader
             )
             self._logger.debug('Saved meta')
             create_lineage(
@@ -122,6 +133,21 @@ class StreamWatcher:
                 unix_process_time
             )
             self._logger.debug('Created Lineage')
+            if str(operation_type) == '1': ## type copy to vre core raw
+                add_copied_with_approval(self._logger, input_full_path)
+            res_update_status = update_file_operation_status(session_id, job_id, EDataActionType.data_transfer.name,
+                project_code, operator, input_full_path)
+            self._logger.debug('res_update_status: ' + str(res_update_status.status_code))
+            res_update_audit_logs = update_file_operation_logs(
+                uploader,
+                operator,
+                input_full_path,
+                output_full_path,
+                processed_file_size,
+                project_code,
+                generate_id
+            )
+            self._logger.debug('res_update_audit_logs: ' + str(res_update_audit_logs.status_code))
         else:
             self._logger.debug('Skip Lineage Creation, redundant messages')
     def __delete_job(self , job_name):

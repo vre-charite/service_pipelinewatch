@@ -1,5 +1,5 @@
 from kubernetes import watch
-from utils.store_file_meta_data import store_file_meta_data
+# from utils.store_file_meta_data import store_file_meta_data
 from utils.lineage_operations import create_lineage
 from config import ConfigClass
 from services.logger_services.logger_factory_service import SrvLoggerFactory
