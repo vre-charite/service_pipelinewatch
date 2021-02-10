@@ -19,6 +19,11 @@ class ConfigClass(object):
     #data ops url
     data_ops_host = "http://dataops-gr.greenroom:5063"
     # data_ops_host = "http://10.3.7.234:5063"
+    data_ops_util_host = "http://dataops-ut.utility:5063"
+    # data_ops_util_host = "http://10.3.7.239:5063"
+
+    #service neo4j
+    NEO4J_SERVICE = "http://neo4j.utility:5062"
 
     #service_cateloguing
     service_cateloguing = "http://cataloguing.utility:5064"
@@ -49,3 +54,12 @@ class ConfigClass(object):
 
     # system tags
     copied_with_approval = 'copied-to-core'
+
+    # bff
+    service_bff = "http://bff.utility:5060"
+
+    # utility service
+    UTILITY_SERVICE = "http://common.utility:5062"
+
+    # entity info service
+    ENTITY_INFO_SERVICE = "http://entityinfo.utility:5066"

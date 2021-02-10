@@ -1,9 +1,11 @@
 from kubernetes import watch
-from utils.meta_data_operations import store_file_meta_data, add_copied_with_approval
-from utils.lineage_operations import create_lineage
+from utils.meta_data_operations import store_file_meta_data, \
+    add_copied_with_approval, store_file_meta_data_v2, archive_file_data
+from utils.lineage_operations import create_lineage, create_lineage_v2
 from utils.file_opertion_status import update_file_operation_status, EDataActionType, update_file_operation_logs
 from config import ConfigClass
 from services.logger_services.logger_factory_service import SrvLoggerFactory
+from services.file_meta.vr_folders_mgr import SrvVRMgr
 import os, datetime
 from enum import Enum
 import requests
@@ -41,12 +43,24 @@ class StreamWatcher:
                     self.__delete_job(job_name)
                 else:
                     self._logger.warning("Terminating creating metadata")
+            elif pipeline == EPipelineName.data_delete.name:
+                my_final_status = 'failed' if job.status.failed else 'succeeded'
+                self.__logger_debug.debug(job_name + ": " + my_final_status)
+                if my_final_status == 'succeeded':
+                    annotations = job.spec.template.metadata.annotations
+                    self._on_file_delete_succeed(pipeline, job_name, annotations)
+                    self.__delete_job(job_name)
+                else:
+                    self._logger.warning("Terminating creating metadata")
+            else:
+                self._logger.warning("Unknow pipeline job: " + pipeline)
         else:
             self._logger.info(job_name + " runnning...")
     def _on_dicom_eidt_succeed(self, pipeline, job_name, annotations):
         self.__logger_debug.debug('_on_dicom_eidt_succeed Triggered----' + datetime.datetime.now().isoformat())
         input_path = annotations['input_file']
         output_path = annotations['output_path']
+        uploader = annotations.get("uploader", 'admin')
         decoded_input_path = input_path.split('/')
         bucket_name = decoded_input_path[3]
         raw_file_name = decoded_input_path[5]
@@ -83,16 +97,43 @@ class StreamWatcher:
                     file_path,
                     bucket_name,
                     pipeline,
-                    'Pipeline Processed',
+                    'dicom_edit Processed',
                     unix_process_time
                 )
+                # v2 API
+                from_parents = {
+                    "full_path": input_path,
+                }
+                store_file_meta_data_v2(
+                    uploader,
+                    file_name,
+                    output_path,
+                    processed_file_size,
+                    'processed by dicom_edit',
+                    'greenroom',
+                    'processed',
+                    bucket_name,
+                    [],
+                    generate_id,
+                    'auto_trigger',
+                    from_parents=from_parents,
+                    process_pipeline=pipeline)
+                create_lineage_v2(
+                    input_path,
+                    file_path,
+                    bucket_name,
+                    pipeline,
+                    'dicom_edit Processed',
+                    unix_process_time)
             else:
                 self._logger.debug('Skip Lineage Creation, redundant messages')
     def _on_data_transfer_succeed(self, job_name, annotations):
+        self._logger.info("_on_data_transfer_succeed Event triggered")
         self._logger.info(annotations)
         input_full_path = annotations["input_path"]
         output_full_path = annotations["output_path"]
         output_file_name = os.path.basename(output_full_path)
+        output_path = os.path.dirname(output_full_path)
         project_code = annotations["project"] if annotations.get("project") else ConfigClass.tvb_project_code
         generate_id = annotations.get("generate_id", "undefined")
         uploader = annotations.get("uploader")
@@ -110,46 +151,133 @@ class StreamWatcher:
             self._logger.error("Error when getting file size")
             self._logger.error(str(e))
             self._logger.error("Terminating creating metadata")
-        if self.__check_valid_creation(output_full_path):
-            store_file_meta_data(
-                output_full_path,
-                project_code,
-                output_file_name,
-                input_full_path,
-                processed_file_size,
-                EPipelineName.data_transfer.name,
-                job_name,
-                "succeeded",
-                generate_id,
-                uploader
-            )
-            self._logger.debug('Saved meta')
-            create_lineage(
-                input_full_path,
-                output_full_path,
-                project_code,
-                EPipelineName.data_transfer.name,
-                'K8s Processed',
-                unix_process_time
-            )
-            self._logger.debug('Created Lineage')
-            if str(operation_type) == '1': ## type copy to vre core raw
-                add_copied_with_approval(self._logger, input_full_path)
-            res_update_status = update_file_operation_status(session_id, job_id, EDataActionType.data_transfer.name,
+        try:
+            ## Saving metadata
+            if self.__check_valid_creation(output_full_path):
+                store_file_meta_data(
+                    output_full_path,
+                    project_code,
+                    output_file_name,
+                    input_full_path,
+                    processed_file_size,
+                    EPipelineName.data_transfer.name,
+                    job_name,
+                    "succeeded",
+                    generate_id,
+                    uploader
+                )
+                self._logger.debug('Saved meta')
+                create_lineage(
+                    input_full_path,
+                    output_full_path,
+                    project_code,
+                    EPipelineName.data_transfer.name,
+                    'K8s Processed',
+                    unix_process_time
+                )
+                self._logger.debug('Created Lineage')
+                # v2 API
+                from_parents = {
+                    "full_path": input_full_path,
+                }
+                store_file_meta_data_v2(
+                    uploader,
+                    output_file_name,
+                    output_path,
+                    processed_file_size,
+                    'processed by data_transfer',
+                    'greenroom' if ConfigClass.data_lake in output_full_path else 'vrecore',
+                    'processed',
+                    project_code,
+                    [],
+                    generate_id,
+                    operator,
+                    from_parents=from_parents,
+                    process_pipeline=EPipelineName.data_transfer.name)
+                self._logger.debug('Saved meta v2')
+                create_lineage_v2(
+                    input_full_path,
+                    output_full_path,
+                    project_code,
+                    EPipelineName.data_transfer.name,
+                    'data_transfer Processed',
+                    unix_process_time)
+                self._logger.debug('Created Lineage v2')
+                if str(operation_type) == '1': ## type copy to vre core raw
+                    add_copied_with_approval(self._logger, input_full_path, project_code)
+                res_update_status = update_file_operation_status(session_id, job_id, EDataActionType.data_transfer.name,
+                    project_code, operator, input_full_path)
+                self._logger.debug('res_update_status: ' + str(res_update_status.status_code))
+                res_update_audit_logs = update_file_operation_logs(
+                    uploader,
+                    operator,
+                    input_full_path,
+                    output_full_path,
+                    processed_file_size,
+                    project_code,
+                    generate_id
+                )
+                self._logger.debug('res_update_audit_logs: ' + str(res_update_audit_logs.status_code))
+            else:
+                self._logger.debug('Skip Lineage Creation, redundant messages')
+        except Exception as e:
+            self._logger.error("Error when creating metadata: " + str(e))
+    def _on_file_delete_succeed(self, pipeline, job_name, annotations):
+        self._logger.info("_on_file_delete_succeed Event triggered")
+        input_full_path = annotations["event_payload_input_path"]
+        input_file_name = os.path.basename(input_full_path)
+        input_path = os.path.dirname(input_full_path)
+        output_full_path = annotations["event_payload_output_path"]
+        output_file_name = os.path.basename(output_full_path)
+        output_path = os.path.dirname(output_full_path)
+        project_code = annotations["event_payload_project"]
+        session_id = annotations.get('event_payload_session_id', 'default_session')
+        job_id = annotations.get('event_payload_job_id', 'default_job')
+        operator = annotations.get('event_payload_operator', '')
+        uploader = annotations.get('event_payload_uploader', '')
+        generate_id = annotations.get('event_payload_generate_id', '')
+        unix_process_time = datetime.datetime.utcnow().timestamp()
+        update_file_name_suffix = "_" + str(round(unix_process_time))
+        processed_file_size = 0
+        myfilename, file_extension = os.path.splitext(input_file_name)
+        updated_file_name = myfilename + update_file_name_suffix + file_extension
+        updated_input_path = input_path + "/" + updated_file_name
+        self._logger.debug("_on_file_delete_succeed annotations: " + str(annotations))
+        try:
+            processed_file_size = os.path.getsize(output_full_path)
+        except Exception as e:
+            self._logger.error("Error when getting file size")
+            self._logger.error(str(e))
+            self._logger.error("Terminating creating metadata")
+        ## archive virtual files
+        vr_mgr = SrvVRMgr()
+        res_delete_vr_files_by_full_path = vr_mgr.delete_vr_files_by_full_path(input_full_path)
+        self._logger.debug("delete_vr_files_by_full_path res: " + str(res_delete_vr_files_by_full_path))
+        archive_res = archive_file_data(input_path, input_file_name, output_path,
+            output_file_name, operator, project_code, update_file_name_suffix, updated_file_name)
+        create_lineage_v2(
+                    updated_input_path,
+                    output_full_path,
+                    project_code,
+                    EPipelineName.data_delete.name,
+                    'data_delete Processed',
+                    unix_process_time)
+        res_update_status = update_file_operation_status(session_id, job_id, EDataActionType.data_delete.name,
                 project_code, operator, input_full_path)
-            self._logger.debug('res_update_status: ' + str(res_update_status.status_code))
-            res_update_audit_logs = update_file_operation_logs(
-                uploader,
-                operator,
-                input_full_path,
-                output_full_path,
-                processed_file_size,
-                project_code,
-                generate_id
-            )
-            self._logger.debug('res_update_audit_logs: ' + str(res_update_audit_logs.status_code))
-        else:
-            self._logger.debug('Skip Lineage Creation, redundant messages')
+        self._logger.debug('res_update_status: ' + str(res_update_status.status_code))
+        res_update_audit_logs = update_file_operation_logs(
+            uploader,
+            operator,
+            input_full_path,
+            output_full_path,
+            processed_file_size,
+            project_code,
+            generate_id,
+            EDataActionType.data_delete.name
+        )
+        self._logger.debug('res_update_audit_logs: ' + str(res_update_audit_logs.status_code))
+        self._logger.debug('archive_res: ' + str(archive_res))
+        self._logger.info('Archived: ' + input_full_path + '--------------' + updated_input_path + '--------------' + output_full_path)
     def __delete_job(self , job_name):
         try:
             dele_res = self.batch_api.delete_namespaced_job(
@@ -209,18 +337,19 @@ class StreamWatcher:
         self._logger.info('Start Pipeline Job Stream Watching')
         stream = self.__get_stream()
         for event in stream:
-            self.__logger_debug.debug(str(event))
+            # self.__logger_debug.debug(str(event))
             event_type = event['type']
             job = event['object']
             finalizers = event['object'].metadata.finalizers
-            self._logger.info('Event Triggered: ' + event_type + " - " + job.metadata.name)
+            # self._logger.debug('Event Triggered: ' + event_type + " - " + job.metadata.name)
             if event_type == PipelineJobEvent.MODIFIED.name and not finalizers:
                 self._watch_callback(job)
             else:
                 if event_type == PipelineJobEvent.MODIFIED.name and finalizers:
-                    self._logger.info("Pre-Deleting.......................")
-                self._logger.info("Ingnored Event, Skip Watch Callback.")
-            self._logger.info("Event Process Done.")
+                    pass
+                    # self._logger.debug("Pre-Deleting.......................")
+                # self._logger.debug("Ingnored Event, Skip Watch Callback.")
+            # self._logger.debug("Event Process Done.")
 
 class PipelineJobEvent(Enum):
     ADDED = 0,
@@ -230,3 +359,4 @@ class PipelineJobEvent(Enum):
 class EPipelineName(Enum):
     dicom_edit = 0,
     data_transfer = 1,
+    data_delete = 200

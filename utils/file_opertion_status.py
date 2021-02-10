@@ -24,14 +24,15 @@ def update_file_operation_status(session_id, job_id, action_type, project_code, 
     )
     return res_update_status
 
-def update_file_operation_logs(owner, operator, input_file_path, output_file_path, file_size, project_code, generate_id):
+def update_file_operation_logs(owner, operator, input_file_path, output_file_path,
+    file_size, project_code, generate_id, operation_type="data_transfer"):
     '''
     Endpoint
     /v1/file/actions/logs
     '''
     url = ConfigClass.data_ops_host + '/v1/file/actions/logs'
     payload = {
-        "operation_type": "data_transfer",
+        "operation_type": operation_type,
         "owner": owner,
         "operator": operator,
         "input_file_path": input_file_path,
@@ -48,3 +49,4 @@ def update_file_operation_logs(owner, operator, input_file_path, output_file_pat
 
 class EDataActionType(Enum):
     data_transfer = 0
+    data_delete = 200
