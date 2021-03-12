@@ -63,3 +63,7 @@ class ConfigClass(object):
 
     # entity info service
     ENTITY_INFO_SERVICE = "http://entityinfo.utility:5066"
+
+    PROVENANCE_SERVICE = "http://provenance.utility:5077"
+
+    # trigger cicd

@@ -23,7 +23,7 @@ def create_lineage_v2(inputFullPath, outputFullPath, projectCode, pipelineName, 
         "description": description,
         'process_timestamp': create_time
     }
-    _logger.debug("Creating Lineage: " + str(payload))
+    _logger.debug("Creating Lineage V2: " + str(payload))
     res = requests.post(
             url=my_url + '/v2/lineage',
             json=payload

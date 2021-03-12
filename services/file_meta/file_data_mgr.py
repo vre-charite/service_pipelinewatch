@@ -172,7 +172,8 @@ class SrvFileDataMgr(metaclass=MetaService):
             add_url = ConfigClass.data_ops_host + "/v2/containers/{}/tags".format(project_id)
             add_post = {
                 "taglist": [ConfigClass.copied_with_approval],
-                "geid": parent_geid
+                "geid": parent_geid,
+                "internal": True
             }
             respon_add_copy_tag = requests.post(add_url, json=add_post)
             if respon_add_copy_tag.status_code == 200:

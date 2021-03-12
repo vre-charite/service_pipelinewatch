@@ -18,44 +18,47 @@ class StreamWatcher:
         self._logger = SrvLoggerFactory(self.name).get_logger()
         self.__logger_debug = SrvLoggerFactory(self.name + "_debug").get_logger()
     def _watch_callback(self, job):
-        job_name = job.metadata.name
-        pipeline = job.metadata.labels['pipeline']
-        def job_filter(job):
-            active_pods = job.status.active
-            return (active_pods == 0 or active_pods == None)
-        if job_filter(job):
-            self.__logger_debug.debug('ended job_name: ' + job_name + " pipeline: " + pipeline)
-            if pipeline == EPipelineName.dicom_edit.name:
-                my_final_status = 'failed' if job.status.failed else 'succeeded'
-                self.__logger_debug.debug(job_name + ": " + my_final_status)
-                if my_final_status == 'succeeded':
-                    annotations = job.spec.template.metadata.annotations
-                    self._on_dicom_eidt_succeed(pipeline, job_name, annotations)
-                    self.__delete_job(job_name)
+        try:
+            job_name = job.metadata.name
+            pipeline = job.metadata.labels['pipeline']
+            def job_filter(job):
+                active_pods = job.status.active
+                return (active_pods == 0 or active_pods == None)
+            if job_filter(job):
+                self.__logger_debug.debug('ended job_name: ' + job_name + " pipeline: " + pipeline)
+                if pipeline == EPipelineName.dicom_edit.name:
+                    my_final_status = 'failed' if job.status.failed else 'succeeded'
+                    self.__logger_debug.debug(job_name + ": " + my_final_status)
+                    if my_final_status == 'succeeded':
+                        annotations = job.spec.template.metadata.annotations
+                        self._on_dicom_eidt_succeed(pipeline, job_name, annotations)
+                        self.__delete_job(job_name)
+                    else:
+                        self._logger.warning("Terminating creating metadata")
+                elif pipeline == EPipelineName.data_transfer.name:
+                    my_final_status = 'failed' if job.status.failed else 'succeeded'
+                    self.__logger_debug.debug(job_name + ": " + my_final_status)
+                    if my_final_status == 'succeeded':
+                        annotations = job.spec.template.metadata.annotations
+                        self._on_data_transfer_succeed(job_name, annotations)
+                        self.__delete_job(job_name)
+                    else:
+                        self._logger.warning("Terminating creating metadata")
+                elif pipeline == EPipelineName.data_delete.name:
+                    my_final_status = 'failed' if job.status.failed else 'succeeded'
+                    self.__logger_debug.debug(job_name + ": " + my_final_status)
+                    if my_final_status == 'succeeded':
+                        annotations = job.spec.template.metadata.annotations
+                        self._on_file_delete_succeed(pipeline, job_name, annotations)
+                        self.__delete_job(job_name)
+                    else:
+                        self._logger.warning("Terminating creating metadata")
                 else:
-                    self._logger.warning("Terminating creating metadata")
-            elif pipeline == EPipelineName.data_transfer.name:
-                my_final_status = 'failed' if job.status.failed else 'succeeded'
-                self.__logger_debug.debug(job_name + ": " + my_final_status)
-                if my_final_status == 'succeeded':
-                    annotations = job.spec.template.metadata.annotations
-                    self._on_data_transfer_succeed(job_name, annotations)
-                    self.__delete_job(job_name)
-                else:
-                    self._logger.warning("Terminating creating metadata")
-            elif pipeline == EPipelineName.data_delete.name:
-                my_final_status = 'failed' if job.status.failed else 'succeeded'
-                self.__logger_debug.debug(job_name + ": " + my_final_status)
-                if my_final_status == 'succeeded':
-                    annotations = job.spec.template.metadata.annotations
-                    self._on_file_delete_succeed(pipeline, job_name, annotations)
-                    self.__delete_job(job_name)
-                else:
-                    self._logger.warning("Terminating creating metadata")
+                    self._logger.warning("Unknow pipeline job: " + pipeline)
             else:
-                self._logger.warning("Unknow pipeline job: " + pipeline)
-        else:
-            self._logger.info(job_name + " runnning...")
+                self._logger.info(job_name + " runnning...")
+        except Exception as expe:
+            self._logger.error("Internal Error: " + str(expe))
     def _on_dicom_eidt_succeed(self, pipeline, job_name, annotations):
         self.__logger_debug.debug('_on_dicom_eidt_succeed Triggered----' + datetime.datetime.now().isoformat())
         input_path = annotations['input_file']
@@ -237,10 +240,10 @@ class StreamWatcher:
         uploader = annotations.get('event_payload_uploader', '')
         generate_id = annotations.get('event_payload_generate_id', '')
         unix_process_time = datetime.datetime.utcnow().timestamp()
-        update_file_name_suffix = "_" + str(round(unix_process_time))
         processed_file_size = 0
-        myfilename, file_extension = os.path.splitext(input_file_name)
-        updated_file_name = myfilename + update_file_name_suffix + file_extension
+        myfilename, file_extension = os.path.splitext(output_file_name)
+        update_file_name_suffix = myfilename.split("_")[1]
+        updated_file_name = output_file_name
         updated_input_path = input_path + "/" + updated_file_name
         self._logger.debug("_on_file_delete_succeed annotations: " + str(annotations))
         try:

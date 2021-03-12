@@ -1,4 +1,4 @@
-import requests
+import requests, os
 from enum import Enum
 from config import ConfigClass
 
@@ -25,7 +25,7 @@ def update_file_operation_status(session_id, job_id, action_type, project_code, 
     return res_update_status
 
 def update_file_operation_logs(owner, operator, input_file_path, output_file_path,
-    file_size, project_code, generate_id, operation_type="data_transfer"):
+    file_size, project_code, generate_id, operation_type="data_transfer", extra=None):
     '''
     Endpoint
     /v1/file/actions/logs
@@ -44,6 +44,22 @@ def update_file_operation_logs(owner, operator, input_file_path, output_file_pat
     res_update_file_operation_logs = requests.post(
         url,
         json=payload
+    )
+    # new audit log api
+    url_audit_log = ConfigClass.PROVENANCE_SERVICE + '/v1/audit-logs'
+    payload_audit_log = {
+        "action": operation_type,
+        "operator": operator,
+        "target": input_file_path,
+        "outcome": output_file_path,
+        "resource": "file",
+        "display_name": os.path.basename(input_file_path),
+        "project_code": project_code,
+        "extra": extra if extra else {}
+    }
+    res_audit_logs = requests.post(
+        url_audit_log,
+        json=payload_audit_log
     )
     return res_update_file_operation_logs
 

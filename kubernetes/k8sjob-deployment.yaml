@@ -52,8 +52,11 @@ spec:
         persistentVolumeClaim:
           claimName: greenroom-storage
       - name: nfsvol-vre-data
-        persistentVolumeClaim:
-          claimName: greenroom-vre-storage
+        nfs:
+          server: bihnas2.charite.de
+          path: /AG-Ritter-VRE/VRE-namespace/vre-vre-data-pvc-ab20736f-3a07-4f3e-bfc9-5c804e6a34d4/
+#        persistentVolumeClaim:
+#          claimName: greenroom-vre-storage
 ---
 apiVersion: v1
 kind: Service
