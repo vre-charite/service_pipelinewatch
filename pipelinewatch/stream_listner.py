@@ -84,25 +84,6 @@ class StreamWatcher:
         if processed_file_size > 0:
             if self.__check_valid_creation(file_path):
                 self.__logger_debug.debug("action triggered: " + datetime.datetime.now().isoformat())
-                store_file_meta_data(
-                    file_path,
-                    bucket_name,
-                    file_name,
-                    input_path,
-                    processed_file_size,
-                    pipeline,
-                    job_name,
-                    "succeeded",
-                    generate_id
-                )
-                create_lineage(
-                    input_path,
-                    file_path,
-                    bucket_name,
-                    pipeline,
-                    'dicom_edit Processed',
-                    unix_process_time
-                )
                 # v2 API
                 from_parents = {
                     "full_path": input_path,
@@ -157,28 +138,6 @@ class StreamWatcher:
         try:
             ## Saving metadata
             if self.__check_valid_creation(output_full_path):
-                store_file_meta_data(
-                    output_full_path,
-                    project_code,
-                    output_file_name,
-                    input_full_path,
-                    processed_file_size,
-                    EPipelineName.data_transfer.name,
-                    job_name,
-                    "succeeded",
-                    generate_id,
-                    uploader
-                )
-                self._logger.debug('Saved meta')
-                create_lineage(
-                    input_full_path,
-                    output_full_path,
-                    project_code,
-                    EPipelineName.data_transfer.name,
-                    'K8s Processed',
-                    unix_process_time
-                )
-                self._logger.debug('Created Lineage')
                 # v2 API
                 from_parents = {
                     "full_path": input_full_path,
