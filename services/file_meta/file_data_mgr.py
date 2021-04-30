@@ -6,7 +6,7 @@ import os
 class SrvFileDataMgr(metaclass=MetaService):
     base_url = ConfigClass.data_ops_util_host
     def create(self, uploader, file_name, path, file_size, desc, namespace,
-            data_type, project_code, labels, generate_id, operator=None, from_parents=None, process_pipeline=None):
+            project_code, labels, generate_id, operator=None, from_parents=None, process_pipeline=None):
 
         # fetch geid
         global_entity_id = self.fetch_guid()
@@ -20,7 +20,6 @@ class SrvFileDataMgr(metaclass=MetaService):
             "file_size": file_size,
             "description": desc,
             "namespace": namespace,
-            "data_type": data_type,
             "project_code": project_code,
             "labels": labels,
             "generate_id": generate_id
@@ -152,7 +151,7 @@ class SrvFileDataMgr(metaclass=MetaService):
                 "page_size": 1,
                 "query": {
                     "full_path": parent_full_path,
-                    "labels": ["File", "Processed"]
+                    "labels": ["File"]
                 },
                 "order_by": "name",
                 "order_type": "desc"
@@ -168,10 +167,14 @@ class SrvFileDataMgr(metaclass=MetaService):
                     "payload": str(get_parent_json)
                 }
             parent_geid = res_parent_gotten.json()['result'][0]['global_entity_id']
+            file_tags = res_parent_gotten.json()['result'][0]['tags']
+            if not file_tags:
+                file_tags = []
             ## add approval copy tag
             add_url = ConfigClass.data_ops_host + "/v2/containers/{}/tags".format(project_id)
+            file_tags.append(ConfigClass.copied_with_approval)
             add_post = {
-                "taglist": [ConfigClass.copied_with_approval],
+                "taglist": file_tags,
                 "geid": parent_geid,
                 "internal": True
             }

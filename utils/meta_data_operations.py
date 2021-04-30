@@ -7,7 +7,7 @@ from services.file_meta.file_data_mgr import SrvFileDataMgr
 from utils.project_helpers import get_project_by_code
 
 def store_file_meta_data_v2(uploader, output_file_name, output_path, file_size, desc, namespace,
-        data_type, project_name, labels, generate_id = "undefined", operator=None, from_parents=None, process_pipeline=None):
+        project_name, labels, generate_id = "undefined", operator=None, from_parents=None, process_pipeline=None):
     file_data_mgr = SrvFileDataMgr()
     return file_data_mgr.create(
         uploader,
@@ -16,7 +16,6 @@ def store_file_meta_data_v2(uploader, output_file_name, output_path, file_size, 
         file_size,
         desc,
         namespace,
-        data_type,
         project_name,
         labels,
         generate_id,

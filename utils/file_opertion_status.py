@@ -2,7 +2,17 @@ import requests, os
 from enum import Enum
 from config import ConfigClass
 
-def update_file_operation_status(session_id, job_id, action_type, project_code, operator, source):
+def get_frontend_zone(my_disk_namespace: str):
+    '''
+    disk namespace to path
+    '''
+    return {
+        "greenroom": "Green Room",
+        "vre": "VRE Core",
+        "vrecore": "VRE Core"
+    }.get(my_disk_namespace, None)
+
+def update_file_operation_status(session_id, job_id, action_type, project_code, operator, source, zone):
     '''
     Endpoint
     http://10.3.7.234:5063/v1/file/actions/status
@@ -16,7 +26,11 @@ def update_file_operation_status(session_id, job_id, action_type, project_code, 
         "target_status": 'succeed',
         "project_code": project_code,
         "operator": operator,
-        "progress": "100"
+        "progress": "100",
+        "payload": {
+            "zone": zone,
+            "frontend_zone": get_frontend_zone(zone)
+        }
     }
     res_update_status = requests.post(
         url,

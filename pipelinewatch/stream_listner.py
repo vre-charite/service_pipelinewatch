@@ -72,8 +72,9 @@ class StreamWatcher:
         file_path = output_path + "/" + file_name
         generate_id = "undefined"
         unix_process_time = datetime.datetime.utcnow().timestamp()
+        zone = "greenroom"
         if ConfigClass.generate_project_process_file_folder in file_path:
-            generate_id = file_name[0:8]
+            generate_id = annotations.get("event_payload_generate_id")
         processed_file_size = 0
         try:
             processed_file_size = os.path.getsize(file_path)
@@ -94,8 +95,7 @@ class StreamWatcher:
                     output_path,
                     processed_file_size,
                     'processed by dicom_edit',
-                    'greenroom',
-                    'processed',
+                    zone,
                     bucket_name,
                     [],
                     generate_id,
@@ -129,6 +129,7 @@ class StreamWatcher:
         self._logger.debug("_on_data_transfer_succeed annotations: " + str(annotations))
         unix_process_time = datetime.datetime.utcnow().timestamp()
         processed_file_size = 0
+        zone = "greenroom" if ConfigClass.data_lake in output_full_path else 'vrecore'
         try:
             processed_file_size = os.path.getsize(output_full_path)
         except Exception as e:
@@ -148,8 +149,7 @@ class StreamWatcher:
                     output_path,
                     processed_file_size,
                     'processed by data_transfer',
-                    'greenroom' if ConfigClass.data_lake in output_full_path else 'vrecore',
-                    'processed',
+                    zone,
                     project_code,
                     [],
                     generate_id,
@@ -168,7 +168,7 @@ class StreamWatcher:
                 if str(operation_type) == '1': ## type copy to vre core raw
                     add_copied_with_approval(self._logger, input_full_path, project_code)
                 res_update_status = update_file_operation_status(session_id, job_id, EDataActionType.data_transfer.name,
-                    project_code, operator, input_full_path)
+                    project_code, operator, input_full_path, zone)
                 self._logger.debug('res_update_status: ' + str(res_update_status.status_code))
                 res_update_audit_logs = update_file_operation_logs(
                     uploader,
@@ -204,6 +204,7 @@ class StreamWatcher:
         update_file_name_suffix = myfilename.split("_")[1]
         updated_file_name = output_file_name
         updated_input_path = input_path + "/" + updated_file_name
+        zone = "greenroom" if ConfigClass.data_lake in output_full_path else 'vrecore'
         self._logger.debug("_on_file_delete_succeed annotations: " + str(annotations))
         try:
             processed_file_size = os.path.getsize(output_full_path)
@@ -225,7 +226,7 @@ class StreamWatcher:
                     'data_delete Processed',
                     unix_process_time)
         res_update_status = update_file_operation_status(session_id, job_id, EDataActionType.data_delete.name,
-                project_code, operator, input_full_path)
+                project_code, operator, input_full_path, zone)
         self._logger.debug('res_update_status: ' + str(res_update_status.status_code))
         res_update_audit_logs = update_file_operation_logs(
             uploader,
