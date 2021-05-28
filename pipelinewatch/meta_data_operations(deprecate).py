@@ -338,6 +338,11 @@ def http_update_node(primary_label, neo4j_id, update_json):
     # update neo4j node
     update_url = ConfigClass.NEO4J_SERVICE + \
         "nodes/{}/node/{}".format(primary_label, neo4j_id)
+    # update_json = {
+    #     "archived": True,
+    #     "name": updated_file_name,
+    #     "full_path": path + "/" + updated_file_name
+    # }
     res = requests.put(url=update_url, json=update_json)
     return res
 
@@ -355,7 +360,7 @@ def fetch_geid():
     return geid
 
 
-def get_folder_node_bypath(zone, project_code, relative_path, name):
+def event_payload_input_geid(zone, project_code, relative_path, name):
     url = ConfigClass.NEO4J_SERVICE_V2 + "nodes/query"
     payload = {
         "page": 0,
@@ -368,29 +373,6 @@ def get_folder_node_bypath(zone, project_code, relative_path, name):
             "name": name,
             "project_code": project_code,
             "labels": [zone, 'Folder']
-        }
-    }
-    response = requests.post(url, json=payload)
-    if response.status_code == 200:
-        result = response.json()['result']
-        if len(result) > 0:
-            return result[0]
-    return None
-
-
-def get_folder_node_bypath_without_zone(project_code, relative_path, name, extral_labels = []):
-    url = ConfigClass.NEO4J_SERVICE_V2 + "nodes/query"
-    payload = {
-        "page": 0,
-        "page_size": 1,
-        "partial": False,
-        "order_by": "global_entity_id",
-        "order_type": "desc",
-        "query": {
-            "folder_relative_path": relative_path,
-            "name": name,
-            "project_code": project_code,
-            "labels": ['Folder'] + extral_labels
         }
     }
     response = requests.post(url, json=payload)

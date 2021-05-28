@@ -1,6 +1,11 @@
-import requests, os
+import requests
+import os
 from enum import Enum
 from config import ConfigClass
+from services.logger_services.logger_factory_service import SrvLoggerFactory
+
+_logger = SrvLoggerFactory('file_operation_status').get_logger()
+
 
 def get_frontend_zone(my_disk_namespace: str):
     '''
@@ -12,39 +17,37 @@ def get_frontend_zone(my_disk_namespace: str):
         "vrecore": "VRE Core"
     }.get(my_disk_namespace, None)
 
+
 def update_file_operation_status(session_id, job_id, action_type, project_code, operator, source, zone):
     '''
     Endpoint
-    http://10.3.7.234:5063/v1/file/actions/status
+    ConfigClass.data_ops_util_host/v1/tasks
     '''
-    url = ConfigClass.data_ops_host + '/v1/file/actions/status'
+    url = ConfigClass.DATA_OPS_UT + 'tasks'
     payload = {
         "session_id": session_id,
         "job_id": job_id,
-        "source": source,
-        "action": action_type,
-        "target_status": 'succeed',
-        "project_code": project_code,
-        "operator": operator,
+        "status": EActionState.SUCCEED.name,
         "progress": "100",
-        "payload": {
+        "add_payload": {
             "zone": zone,
             "frontend_zone": get_frontend_zone(zone)
         }
     }
-    res_update_status = requests.post(
+    res_update_status = requests.put(
         url,
         json=payload
     )
     return res_update_status
 
+
 def update_file_operation_logs(owner, operator, input_file_path, output_file_path,
-    file_size, project_code, generate_id, operation_type="data_transfer", extra=None):
+                               file_size, project_code, generate_id, operation_type="data_transfer", extra=None):
     '''
     Endpoint
     /v1/file/actions/logs
     '''
-    url = ConfigClass.data_ops_host + '/v1/file/actions/logs'
+    url = ConfigClass.DATA_OPS_GR + 'file/actions/logs'
     payload = {
         "operation_type": operation_type,
         "owner": owner,
@@ -55,12 +58,13 @@ def update_file_operation_logs(owner, operator, input_file_path, output_file_pat
         "project_code": project_code,
         "generate_id": generate_id
     }
+    _logger.info('add audit log to elastic search, payload: ' + str(payload))
     res_update_file_operation_logs = requests.post(
         url,
         json=payload
     )
     # new audit log api
-    url_audit_log = ConfigClass.PROVENANCE_SERVICE + '/v1/audit-logs'
+    url_audit_log = ConfigClass.PROVENANCE_SERVICE + 'audit-logs'
     payload_audit_log = {
         "action": operation_type,
         "operator": operator,
@@ -77,6 +81,22 @@ def update_file_operation_logs(owner, operator, input_file_path, output_file_pat
     )
     return res_update_file_operation_logs
 
+
 class EDataActionType(Enum):
     data_transfer = 0
     data_delete = 200
+
+
+class EActionState(Enum):
+    '''
+    Action state
+    '''
+    INIT = 0,
+    PRE_UPLOADED = 1,
+    CHUNK_UPLOADED = 2,
+    FINALIZED = 3,
+    SUCCEED = 4,
+    TERMINATED = 5
+    RUNNING = 6
+    ZIPPING = 7
+    READY_FOR_DOWNLOADING = 8

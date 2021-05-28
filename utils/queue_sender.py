@@ -5,7 +5,7 @@ from services.logger_services.logger_factory_service import SrvLoggerFactory
 
 def send_to_queue(path_name):
     _logger = SrvLoggerFactory('stream_watcher').get_logger()
-    url = ConfigClass.service_queue_send_msg_url
+    url = ConfigClass.QUEUE_SERVICE + "send_message"
     my_data = path_name
     _logger.info("Sending Message To Queue: " + path_name)
     res = requests.post(

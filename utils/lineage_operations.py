@@ -14,7 +14,7 @@ def create_lineage_v2(inputFullPath, outputFullPath, projectCode, pipelineName, 
     }
     '''
     _logger = SrvLoggerFactory('stream_watcher').get_logger()
-    my_url = ConfigClass.service_cateloguing
+    my_url = ConfigClass.CATALOGUING_SERVICE_V2
     payload = {
         "inputFullPath": inputFullPath,
         "outputFullPath": outputFullPath,
@@ -25,7 +25,7 @@ def create_lineage_v2(inputFullPath, outputFullPath, projectCode, pipelineName, 
     }
     _logger.debug("Creating Lineage V2: " + str(payload))
     res = requests.post(
-            url=my_url + '/v2/lineage',
+            url=my_url + 'lineage',
             json=payload
     )
     if res.status_code == 200:
@@ -47,7 +47,7 @@ def create_lineage(inputFullPath, outputFullPath, projectCode, pipelineName, des
     }
     '''
     _logger = SrvLoggerFactory('stream_watcher').get_logger()
-    my_url = ConfigClass.service_cateloguing
+    my_url = ConfigClass.CATALOGUING_SERVICE
     payload = {
         "inputFullPath": inputFullPath,
         "outputFullPath": outputFullPath,
@@ -58,7 +58,7 @@ def create_lineage(inputFullPath, outputFullPath, projectCode, pipelineName, des
     }
     _logger.debug("Creating Lineage: " + str(payload))
     res = requests.post(
-            url=my_url + '/v1/lineage',
+            url=my_url + 'lineage',
             json=payload
     )
     if res.status_code == 200:

@@ -4,7 +4,7 @@ from config import ConfigClass
 
 class SrvVRMgr(metaclass=MetaService):
     def delete_vr_files_by_full_path(self, full_path):
-        neo4j_url = ConfigClass.NEO4J_SERVICE + "/v1/neo4j/nodes/VirtualFile/query"
+        neo4j_url = ConfigClass.NEO4J_SERVICE + "nodes/VirtualFile/query"
         query_body = {
             "name": full_path
         }
@@ -25,7 +25,7 @@ class SrvVRMgr(metaclass=MetaService):
         vr_files = vr_files_respon.json()
         ## deletion
         for vr_file in vr_files:
-            dele_url = ConfigClass.NEO4J_SERVICE + "/v1/neo4j/nodes/VirtualFile/node/{}".format(vr_file['id'])
+            dele_url = ConfigClass.NEO4J_SERVICE + "nodes/VirtualFile/node/{}".format(vr_file['id'])
             dele_respon = requests.delete(dele_url)
             if dele_respon.status_code == 200:
                 pass
