@@ -185,7 +185,7 @@ def on_folder_deleted(_logger, annotations, source_node):
             res: dict = updated_node.json()[0]
             refresh_node(file_node, res)
             file_output_full_path = os.path.join(
-                output_root_path, relative_folder_full_path, file_node['name'])
+                output_full_path, get_relative_folder_path_to_source_for_file(file_node, source_node), file_node['name'])
             from_parents = {
                 "full_path": file_input_full_path,
             }
@@ -380,6 +380,26 @@ def get_relative_folder_path(current_node):
         if destination_relative_path.endswith(os.sep) else destination_relative_path
     return destination_relative_path
 
+def get_relative_folder_path_to_source_for_file(current_node, source_node):
+    '''
+    must update source node first
+    '''
+    path_relative_to_source_path = ''
+    input_nodes = get_connected_nodes(
+    current_node['global_entity_id'], "input")
+    input_nodes = [
+        node for node in input_nodes if 'Folder' in node['labels']]
+    input_nodes.sort(key=lambda f: f['folder_level'])
+    found_source_node = [
+        node for node in input_nodes if node['global_entity_id'] == source_node['global_entity_id']]
+    found_source_node = found_source_node[0] if len(
+        found_source_node) > 0 else None
+    # child nodes
+    source_index = input_nodes.index(found_source_node)
+    folder_name_list = [node['name']
+        for node in input_nodes[source_index + 1:]]
+    path_relative_to_source_path = os.sep.join(folder_name_list)
+    return path_relative_to_source_path
 
 def refresh_node(target: dict, new: dict):
     for k, v in new.items():
