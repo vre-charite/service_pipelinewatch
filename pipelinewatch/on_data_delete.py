@@ -365,19 +365,29 @@ def get_zone(labels: list):
     return None
 
 
-def get_relative_folder_path(node, source_node):
+def get_relative_folder_path(current_node, source_node):
     '''
     must update source node first
     '''
     # caculate relative path
-    fnodes_parent = get_connected_nodes(node['global_entity_id'], "input")
-    fnodes_parent = [fnode for fnode in fnodes_parent if fnode.get(
-        'folder_level') and fnode['folder_level'] >= source_node['folder_level']]
-    fnodes_parent.sort(key=lambda f: f['folder_level'])
-    path_relative_to_source = os.sep.join(
-        [fnode['name'] for fnode in fnodes_parent])
-    destination_relative_path = os.path.join(
-        source_node['name'], path_relative_to_source)
+    input_nodes = get_connected_nodes(
+    current_node['global_entity_id'], "input")
+    input_nodes = [
+        node for node in input_nodes if 'Folder' in node['labels']]
+    input_nodes.sort(key=lambda f: f['folder_level'])
+    found_source_node = [
+        node for node in input_nodes if node['global_entity_id'] == source_node['global_entity_id']]
+    found_source_node = found_source_node[0] if len(
+        found_source_node) > 0 else None
+    path_relative_to_source_path = ''
+    if found_source_node and current_node['global_entity_id'] != source_node['global_entity_id']:
+        # child nodes
+        source_index = input_nodes.index(found_source_node)
+        folder_name_list = [node['name']
+            for node in input_nodes[source_index + 1:]]
+        path_relative_to_source_path = os.sep.join(folder_name_list)
+        destination_relative_path = os.path.join(
+            source_node['name'], path_relative_to_source_path)
     destination_relative_path = destination_relative_path[:-1] \
         if destination_relative_path.endswith(os.sep) else destination_relative_path
     return destination_relative_path
