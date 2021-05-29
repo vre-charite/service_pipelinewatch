@@ -3,11 +3,13 @@ import requests
 from config import ConfigClass
 from services.logger_services.logger_factory_service import SrvLoggerFactory
 
-_logger = SrvLoggerFactory('file_data_mgr').get_logger()
-
 
 class SrvFileDataMgr(metaclass=MetaService):
     base_url = ConfigClass.DATA_OPS_UT
+
+    def __init__(self):
+        self.name = "file_data_mgr"
+        self.__logger = SrvLoggerFactory(self.name).get_logger()
 
     def create(self, uploader, file_name, path, file_size, desc, namespace,
                project_code, labels, generate_id, operator=None,
@@ -37,7 +39,7 @@ class SrvFileDataMgr(metaclass=MetaService):
             post_json_form['parent_query'] = from_parents
         if process_pipeline:
             post_json_form['process_pipeline'] = process_pipeline
-        _logger.info("create file: " + str(post_json_form))
+        self.__logger.info("create file: " + str(post_json_form))
         res = requests.post(url=url, json=post_json_form)
         if res.status_code == 200:
             return res.json()['result']
