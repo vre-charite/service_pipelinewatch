@@ -127,8 +127,7 @@ def on_folder_deleted(_logger, annotations, source_node):
     # update relative path
     for fnode in fnodes_children:
         # caculate relative path
-        destination_relative_path = get_relative_folder_path(
-            fnode, source_node)
+        destination_relative_path = get_relative_folder_path(fnode)
         update_json = {
             'archived': True,
             'folder_relative_path': destination_relative_path
@@ -365,29 +364,18 @@ def get_zone(labels: list):
     return None
 
 
-def get_relative_folder_path(current_node, source_node):
+def get_relative_folder_path(current_node):
     '''
     must update source node first
     '''
     # caculate relative path
     input_nodes = get_connected_nodes(
-    current_node['global_entity_id'], "input")
+        current_node['global_entity_id'], "input")
     input_nodes = [
         node for node in input_nodes if 'Folder' in node['labels']]
     input_nodes.sort(key=lambda f: f['folder_level'])
-    found_source_node = [
-        node for node in input_nodes if node['global_entity_id'] == source_node['global_entity_id']]
-    found_source_node = found_source_node[0] if len(
-        found_source_node) > 0 else None
-    path_relative_to_source_path = ''
-    if found_source_node and current_node['global_entity_id'] != source_node['global_entity_id']:
-        # child nodes
-        source_index = input_nodes.index(found_source_node)
-        folder_name_list = [node['name']
-            for node in input_nodes[source_index + 1:]]
-        path_relative_to_source_path = os.sep.join(folder_name_list)
-        destination_relative_path = os.path.join(
-            source_node['name'], path_relative_to_source_path)
+    folder_name_list = [node['name'] for node in input_nodes]
+    destination_relative_path = os.sep.join(folder_name_list)
     destination_relative_path = destination_relative_path[:-1] \
         if destination_relative_path.endswith(os.sep) else destination_relative_path
     return destination_relative_path
