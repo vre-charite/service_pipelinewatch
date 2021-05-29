@@ -215,7 +215,8 @@ def on_folder_transferred(_logger, annotations, source_node):
                 operator,
                 from_parents=from_parents,
                 process_pipeline=EPipelineName.data_transfer.name,
-                parent_folder_geid=parent_folder_node['global_entity_id']
+                parent_folder_geid=parent_folder_node['global_entity_id'],
+                original_geid=file_node['global_entity_id']
             )
             _logger.debug('Saved meta v2: ' + file_output_full_path)
             # update extra attibutes
@@ -299,7 +300,8 @@ def on_single_file_transferred(_logger, annotations, source_node):
         operator,
         from_parents=from_parents,
         process_pipeline=EPipelineName.data_transfer.name,
-        parent_folder_geid=destination_geid if destination and 'Folder' in destination['labels'] else None)
+        parent_folder_geid=destination_geid if destination and 'Folder' in destination['labels'] else None,
+        original_geid=source_node['global_entity_id'])
     # update extra attibutes
     update_json = {}
     for k, v in source_node.items():

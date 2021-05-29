@@ -1,6 +1,9 @@
 from models.service_meta_class import MetaService
 import requests
 from config import ConfigClass
+from services.logger_services.logger_factory_service import SrvLoggerFactory
+
+_logger = SrvLoggerFactory('file_data_mgr').get_logger()
 
 
 class SrvFileDataMgr(metaclass=MetaService):
@@ -8,7 +11,7 @@ class SrvFileDataMgr(metaclass=MetaService):
 
     def create(self, uploader, file_name, path, file_size, desc, namespace,
                project_code, labels, generate_id, operator=None,
-               from_parents=None, process_pipeline=None, parent_folder_geid=None):
+               from_parents=None, process_pipeline=None, parent_folder_geid=None, original_geid=None):
 
         # fetch geid
         global_entity_id = self.fetch_guid()
@@ -25,7 +28,8 @@ class SrvFileDataMgr(metaclass=MetaService):
             "project_code": project_code,
             "labels": labels,
             "generate_id": generate_id,
-            "parent_folder_geid": parent_folder_geid if parent_folder_geid else ""
+            "parent_folder_geid": parent_folder_geid if parent_folder_geid else "",
+            "original_geid": original_geid
         }
         if operator:
             post_json_form['operator'] = operator
@@ -33,14 +37,16 @@ class SrvFileDataMgr(metaclass=MetaService):
             post_json_form['parent_query'] = from_parents
         if process_pipeline:
             post_json_form['process_pipeline'] = process_pipeline
+        _logger.info("create file: " + str(post_json_form))
         res = requests.post(url=url, json=post_json_form)
         if res.status_code == 200:
             return res.json()['result']
         else:
-            return {
-                "error": "create meta failed",
-                "errorcode": res.status_code
-            }
+            raise Exception(str({
+                "error": "SrvFileDataMgr create meta failed",
+                "errorcode": res.status_code,
+                "error_msg": res.text
+            }))
 
     def archive(self, path, file_name, trash_path, trash_file_name, operator, file_name_suffix, trash_geid, _logger, updated_original_file_path=None):
         url = ConfigClass.CATALOGUING_SERVICE_V2 + "filedata"

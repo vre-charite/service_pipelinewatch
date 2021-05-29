@@ -11,7 +11,7 @@ from services.file_meta.file_data_mgr import SrvFileDataMgr
 
 def store_file_meta_data_v2(uploader, output_file_name, output_path, file_size, desc, namespace,
                             project_name, labels, generate_id="undefined", operator=None,
-                            from_parents=None, process_pipeline=None, parent_folder_geid=None):
+                            from_parents=None, process_pipeline=None, parent_folder_geid=None, original_geid=None):
     file_data_mgr = SrvFileDataMgr()
     return file_data_mgr.create(
         uploader,
@@ -26,7 +26,8 @@ def store_file_meta_data_v2(uploader, output_file_name, output_path, file_size, 
         operator,
         from_parents,
         process_pipeline,
-        parent_folder_geid=parent_folder_geid)
+        parent_folder_geid=parent_folder_geid,
+        original_geid=original_geid)
 
 
 def archive_file_data(path, file_name, trash_path, trash_file_name, operator, project_code, file_name_suffix, updated_file_name):
