@@ -93,7 +93,7 @@ def on_folder_deleted(_logger, annotations, source_node):
             name=to_deactive_node['name'],
             level=to_deactive_node['folder_level'],
             project_code=project_code,
-            uploader=uploader,
+            uploader=to_deactive_node['uploader'],
             relative_path=to_deactive_node['folder_relative_path'],
             tags=to_deactive_node['tags'],
             parent_geid=parent_gotten['global_entity_id'] if parent_gotten else "",
@@ -192,7 +192,7 @@ def on_folder_deleted(_logger, annotations, source_node):
             }
             # create trash file node
             trash_node_stored = store_file_meta_data_v2(
-                uploader,
+                file_node['uploader'],
                 file_node['name'],
                 os.path.dirname(file_output_full_path),
                 file_node['file_size'],

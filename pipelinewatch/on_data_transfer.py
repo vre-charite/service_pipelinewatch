@@ -87,7 +87,7 @@ def on_folder_transferred(_logger, annotations, source_node):
                 'output_folder_name') else fnode_to_mirror['name'],
             level=new_folder_level,
             project_code=project_code,
-            uploader=uploader,
+            uploader=fnode_to_mirror['uploader'],
             relative_path=fnode_to_mirror["new_relative_path"],
             tags=fnode_to_mirror['tags'],
             parent_geid=parent_node['global_entity_id'] if parent_node else "",
@@ -110,7 +110,7 @@ def on_folder_transferred(_logger, annotations, source_node):
     fnodes_connected = [
         node for node in connected_nodes if 'Folder' in node['labels']]
     fnodes_children = [node for node in fnodes_connected
-                       if node['folder_level'] > source_node['folder_level']]
+                       if node['folder_level'] > source_node['folder_level'] and node.get('archived') != True]
     # update source node relative path and parent
     source_node['new_relative_path'] = os.path.join(
         destination['folder_relative_path'], destination['name']) \
@@ -181,7 +181,7 @@ def on_folder_transferred(_logger, annotations, source_node):
         # add copy with approval
         http_update_node('Folder', fnode_to_mirror['id'], {'tags': tags})
     # file node creation
-    file_nodes = [node for node in connected_nodes if 'File' in node['labels']]
+    file_nodes = [node for node in connected_nodes if 'File' in node['labels'] and node.get('archived') != True]
     for file_node in file_nodes:
         parent_folder_node = None
         for folder_node in fnodes_created:
@@ -200,9 +200,10 @@ def on_folder_transferred(_logger, annotations, source_node):
                 "/", ConfigClass.VRE_ROOT_PATH, project_code, relative_folder_full_path, file_node['name'])
             from_parents = {
                 "full_path": file_input_full_path,
+                "original_geid": file_node['global_entity_id']
             }
             file_node_stored = store_file_meta_data_v2(
-                uploader,
+                file_node['uploader'],
                 file_node['name'],
                 os.path.dirname(file_output_full_path),
                 file_node.get('file_size', 0),
@@ -283,6 +284,7 @@ def on_single_file_transferred(_logger, annotations, source_node):
     # v2 API
     from_parents = {
         "full_path": input_full_path,
+        "original_geid": source_node['global_entity_id']
     }
     file_node_stored = store_file_meta_data_v2(
         uploader,
