@@ -89,7 +89,7 @@ def on_folder_transferred(_logger, annotations, source_node):
             project_code=project_code,
             uploader=fnode_to_mirror['uploader'],
             relative_path=fnode_to_mirror["new_relative_path"],
-            tags=fnode_to_mirror['tags'],
+            tags=[tag for tag in fnode_to_mirror['tags'] if tag != ConfigClass.copied_with_approval],
             parent_geid=parent_node['global_entity_id'] if parent_node else "",
             parent_name=parent_node['name'] if parent_node else ""
         )
@@ -210,7 +210,7 @@ def on_folder_transferred(_logger, annotations, source_node):
                 'processed by data_transfer',
                 'vrecore',
                 project_code,
-                file_node.get('tags', []),
+                [tag for tag in file_node.get('tags', []) if tag != ConfigClass.copied_with_approval],
                 file_node['generate_id'],
                 operator,
                 from_parents=from_parents,
@@ -295,7 +295,7 @@ def on_single_file_transferred(_logger, annotations, source_node):
         'processed by data_transfer',
         zone,
         project_code,
-        source_node.get('tags', []),
+        [tag for tag in source_node.get('tags', []) if tag != ConfigClass.copied_with_approval],
         generate_id,
         operator,
         from_parents=from_parents,
