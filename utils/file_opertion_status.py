@@ -40,29 +40,37 @@ def update_file_operation_status(session_id, job_id, action_type, project_code, 
     )
     return res_update_status
 
+def update_file_operation_status_v2(session_id, job_id, zone, status, payload={}):
+    '''
+    Endpoint
+    ConfigClass.data_ops_util_host/v1/tasks
+    '''
+    url = ConfigClass.DATA_OPS_UT + 'tasks'
+    payload = {
+        "session_id": session_id,
+        "job_id": job_id,
+        "status": status,
+        "progress": "100",
+        "add_payload": {
+            "zone": zone,
+            "frontend_zone": get_frontend_zone(zone),
+            **payload
+        }
+    }
+    res_update_status = requests.put(
+        url,
+        json=payload
+    )
+    return res_update_status
+
+
 
 def update_file_operation_logs(owner, operator, input_file_path, output_file_path,
                                file_size, project_code, generate_id, operation_type="data_transfer", extra=None):
     '''
     Endpoint
-    /v1/file/actions/logs
+    url_audit_log = ConfigClass.PROVENANCE_SERVICE + 'audit-logs'
     '''
-    url = ConfigClass.DATA_OPS_GR + 'file/actions/logs'
-    payload = {
-        "operation_type": operation_type,
-        "owner": owner,
-        "operator": operator,
-        "input_file_path": input_file_path,
-        "output_file_path": output_file_path,
-        "file_size": file_size,
-        "project_code": project_code,
-        "generate_id": generate_id
-    }
-    _logger.info('add audit log to elastic search, payload: ' + str(payload))
-    res_update_file_operation_logs = requests.post(
-        url,
-        json=payload
-    )
     # new audit log api
     url_audit_log = ConfigClass.PROVENANCE_SERVICE + 'audit-logs'
     payload_audit_log = {
@@ -79,7 +87,7 @@ def update_file_operation_logs(owner, operator, input_file_path, output_file_pat
         url_audit_log,
         json=payload_audit_log
     )
-    return res_update_file_operation_logs
+    return res_audit_logs
 
 
 class EDataActionType(Enum):

@@ -1,6 +1,7 @@
 from os import DirEntry
 import requests
 import json
+import re
 import time
 from config import ConfigClass
 from services import file_meta
@@ -11,7 +12,8 @@ from services.file_meta.file_data_mgr import SrvFileDataMgr
 
 def store_file_meta_data_v2(uploader, output_file_name, output_path, file_size, desc, namespace,
                             project_name, labels, generate_id="undefined", operator=None,
-                            from_parents=None, process_pipeline=None, parent_folder_geid=None, original_geid=None):
+                            from_parents=None, process_pipeline=None, parent_folder_geid=None, original_geid=None,
+                            bucket="", object_path="", version_id=""):
     file_data_mgr = SrvFileDataMgr()
     return file_data_mgr.create(
         uploader,
@@ -27,7 +29,10 @@ def store_file_meta_data_v2(uploader, output_file_name, output_path, file_size, 
         from_parents,
         process_pipeline,
         parent_folder_geid=parent_folder_geid,
-        original_geid=original_geid)
+        original_geid=original_geid,
+        bucket=bucket,
+        object_path=object_path,
+        version_id=version_id)
 
 
 def archive_file_data(path, file_name, trash_path, trash_file_name, operator, project_code, file_name_suffix, updated_file_name):
@@ -129,96 +134,18 @@ def store_file_meta_data_raw(path, bucket_name, file_name, raw_file_path, size, 
     return res.json()
 
 
-def add_copied_with_approval(_logger, input_full_path, project_code):
+def add_copied_with_approval(_logger, resource_type, geid, inherit=False):
     # only can be used to transfer data to VRE CORE
     # neo4j version -----------------------------------------------------------------------------------
-    file_data_mgr = SrvFileDataMgr()
-    res_add_neo4j = file_data_mgr.add_approval_copy_for_neo4j(
-        input_full_path, project_code)
-    if not res_add_neo4j == "Succeed":
-        _logger.error("add_approval_tag in neo4j failed" + str(res_add_neo4j))
-    # atlas version v1 ---------------------------------------------------------------------------------
-    _logger.debug(
-        '[add_copied_with_approval] input_full_path: ' + input_full_path)
-    url = ConfigClass.CATALOGUING_SERVICE + "entity/basic"
-    payload = {
-        "excludeDeletedEntities": True,
-        "includeSubClassifications": False,
-        "includeSubTypes": False,
-        "includeClassificationAttributes": False,
-        "entityFilters": {
-            "condition": "AND",
-            "criterion": [
-                {
-                    "attributeName": "name",
-                    "attributeValue": input_full_path,
-                    "operator": "eq"
-                }
-            ]
-        },
-        "tagFilters": None,
-        "attributes": [
-            "owner",
-            "downloader",
-            "fileName"
+    url = ConfigClass.DATA_OPS_UT_V2 + "{}/{}/systags".format(resource_type, geid)
+    request_payload = {
+        "systags": [
+            ConfigClass.copied_with_approval
         ],
-        "limit": 10,
-        "offset": "0",
-        "sortBy": "createTime",
-        "sortOrder": "DESCENDING",
-        "typeName": "nfs_file",
-        "classification": None,
-        "termName": None
+        "inherit": inherit
     }
-    response = requests.post(
-        url=url,
-        json=payload
-    )
-    _logger.debug(str(payload))
-    data = None
-    if response.status_code == 200 and response.json().get('result').get('entities', None):
-        data = response.json()
-    else:
-        payload["typeName"] = "nfs_file_processed"
-        response = requests.post(
-            url=url,
-            json=payload
-        )
-        if response.status_code == 200:
-            data = response.json()
-    if data:
-        _logger.debug(
-            '[add_copied_with_approval]data[result] ' + str(data['result']))
-        _logger.debug('[add_copied_with_approval] entity found: ' +
-                      str(data['result'].get('entities', None)))
-        entities = data['result'].get('entities', None)
-        if entities and len(entities) > 0:
-            entity = entities[0]
-            _logger.debug('add_copied_with_approval entity: ' + str(entity))
-            guid = entity['guid']
-            labels = entity.get('labels', [])
-            labels.append(ConfigClass.copied_with_approval)
-            url_create_labels = ConfigClass.DATA_OPS_GR + "data/tags"
-            create_label_payload = {
-                "guid": guid,
-                "tag": ConfigClass.copied_with_approval,
-                "taglist": labels
-            }
-            _logger.debug(
-                'add_copied_with_approval create_label_payload: ' + str(create_label_payload))
-            res_add_label = requests.post(
-                url=url_create_labels,
-                json=create_label_payload
-            )
-            _logger.debug('add_copied_with_approval res status: ' +
-                          str(res_add_label.status_code))
-            if res_add_label.status_code != 200:
-                _logger.error(res_add_label.text)
-                return res_add_label.text
-            return res_add_label.json()
-    else:
-        _logger.error("[add_copied_with_approval] no parent entity found")
-    return response.text
+    response = requests.post(url, json=request_payload)
+    return response
 
 
 def get_resource_bygeid(geid):
@@ -256,7 +183,7 @@ def get_resource_bygeid(geid):
         "order_type": "desc",
         "query": {
             "global_entity_id": geid,
-            "labels": ['Dataset']
+            "labels": ['Container']
         }
     }
     response_file = requests.post(url, json=payload_file)
@@ -400,3 +327,24 @@ def get_folder_node_bypath_without_zone(project_code, relative_path, name, extra
         if len(result) > 0:
             return result[0]
     return None
+
+def location_decoder(location: str):
+    '''
+    decode resource location
+    return ingestion_type, ingestion_host, ingestion_path
+    '''
+    splits_loaction = location.split("://", 1)
+    ingestion_type = splits_loaction[0]
+    ingestion_url = splits_loaction[1]
+    path_splits =  re.split(r"(?<!/)/(?!/)", ingestion_url, 1)
+    ingestion_host = path_splits[0]
+    ingestion_path = path_splits[1]
+    return ingestion_type, ingestion_host, ingestion_path
+
+def update_node_label(node_id, labels):
+    url = ConfigClass.NEO4J_SERVICE + "nodes/{}/labels".format(node_id)
+    payload = {
+        "labels": labels
+    }
+    response = requests.put(url, json=payload)
+    return response

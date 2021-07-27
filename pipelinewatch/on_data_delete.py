@@ -23,6 +23,9 @@ def on_data_delete_succeed(_logger, annotations):
     _logger.info("on_data_delete_succeed Event triggered")
     _logger.info(annotations)
     input_geid = annotations.get('event_payload_input_geid', None)
+    if ConfigClass.debug_mode:
+        _logger.info("debug mode, skipped")
+        return
     if not input_geid:
         _logger.error(
             "[Fatal] None event_payload_input_geid: " + str(annotations))
@@ -171,7 +174,7 @@ def on_folder_deleted(_logger, annotations, source_node):
                 'VRECore': os.path.join(
                     "/", ConfigClass.VRE_ROOT_PATH, project_code, original_relative_folder_full_path),
                 'Greenroom': os.path.join(
-                    "/", ConfigClass.NFS_ROOT_PATH, project_code, 'raw', original_relative_folder_full_path)
+                    "/", ConfigClass.NFS_ROOT_PATH, project_code, original_relative_folder_full_path)
             }.get(zone, None)
             file_input_full_path = os.path.join(file_path, file_node['name'])
             file_old_input_full_path = file_node['full_path']

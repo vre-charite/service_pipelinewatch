@@ -1,16 +1,17 @@
 from kubernetes import watch
 from utils.meta_data_operations import \
     store_file_meta_data_v2
-from utils.lineage_operations import create_lineage_v2
+from utils.lineage_operations import create_lineage_v3
+from utils.archive import generate_zip_preview, save_preview
 from config import ConfigClass
 from services.logger_services.logger_factory_service import SrvLoggerFactory
 import os
 import datetime
 from models.enum_and_events import PipelineJobEvent, EPipelineName
-from .on_data_transfer import on_data_transfer_succeed
-from .on_data_delete import on_data_delete_succeed
+from .on_data_transfer_v2 import on_data_transfer_succeed, on_data_transfer_failed
+from .on_data_delete_v2 import on_data_delete_succeed, on_data_delete_failed
 import requests
-
+from models.minio_client import Minio_Client
 
 class StreamWatcher:
     def __init__(self, batch_api):
@@ -38,7 +39,7 @@ class StreamWatcher:
                         job_name + ": " + my_final_status)
                     if my_final_status == 'succeeded':
                         annotations = job.spec.template.metadata.annotations
-                        self._on_dicom_eidt_succeed(
+                        self._on_dicom_edit_succeed(
                             pipeline, job_name, annotations)
                         self.__delete_job(job_name)
                     else:
@@ -47,21 +48,23 @@ class StreamWatcher:
                     my_final_status = 'failed' if job.status.failed else 'succeeded'
                     self.__logger_debug.debug(
                         job_name + ": " + my_final_status)
+                    annotations = job.spec.template.metadata.annotations
                     if my_final_status == 'succeeded':
-                        annotations = job.spec.template.metadata.annotations
                         on_data_transfer_succeed(self._logger, annotations)
                         self.__delete_job(job_name)
                     else:
+                        on_data_transfer_failed(self._logger, annotations)
                         self._logger.warning("Terminating creating metadata")
                 elif pipeline == EPipelineName.data_delete.name:
                     my_final_status = 'failed' if job.status.failed else 'succeeded'
                     self.__logger_debug.debug(
                         job_name + ": " + my_final_status)
+                    annotations = job.spec.template.metadata.annotations
                     if my_final_status == 'succeeded':
-                        annotations = job.spec.template.metadata.annotations
                         on_data_delete_succeed(self._logger, annotations)
                         self.__delete_job(job_name)
                     else:
+                        on_data_delete_failed(self._logger, annotations)
                         self._logger.warning("Terminating creating metadata")
                 else:
                     self._logger.warning("Unknow pipeline job: " + pipeline)
@@ -72,10 +75,10 @@ class StreamWatcher:
             if ConfigClass.env == 'test':
                 raise
 
-    def _on_dicom_eidt_succeed(self, pipeline, job_name, annotations):
+    def _on_dicom_edit_succeed(self, pipeline, job_name, annotations):
         self.__logger_debug.debug(
-            '_on_dicom_eidt_succeed Triggered----' + datetime.datetime.now().isoformat())
-        input_path = annotations['input_file']
+            '_on_dicom_edit_succeed Triggered----' + datetime.datetime.now().isoformat())
+        input_location = annotations['input_file']
 
         try:
             # Get parent folder
@@ -84,7 +87,7 @@ class StreamWatcher:
                 "start_label": "Folder",
                 "end_label": "File",
                 "end_params": {
-                    "full_path": input_path,
+                    "location": input_location,
                 }
             }
             response = requests.post(
@@ -97,55 +100,93 @@ class StreamWatcher:
         except Exception as e:
             self.__logger_debug.debug('Error getting parent_folder: ' + str(e))
 
-        output_path = annotations['output_path']
+        try:
+            # Get input file node
+            payload = {
+                "location": input_location
+            }
+            response = requests.post(ConfigClass.NEO4J_SERVICE + "nodes/File/query", json=payload)
+            parent_node = response.json()[0]
+            self.__logger_debug.debug(f'Got parent node {parent_node}')
+        except Exception as e:
+            error_msg = f"Error getting parent_node on dicom pipeline: {str(e)}"
+            self.__logger_debug.debug(error_msg)
+            raise Exception(error_msg)
+
+        output_path = self.parse_minio_location(annotations['output_path'])["path"]
         uploader = annotations.get("uploader", 'admin')
-        decoded_input_path = input_path.split('/')
-        bucket_name = decoded_input_path[3]
-        raw_file_name = decoded_input_path[-1]
+        file_data = self.parse_minio_location(input_location)
+        raw_file_name = file_data["path"].split('/')[-1]
         split_raw_file_name = os.path.splitext(raw_file_name)
         file_name = split_raw_file_name[0] + '_edited' + split_raw_file_name[1]
         file_path = output_path + "/" + file_name
-        generate_id = "undefined"
         unix_process_time = datetime.datetime.utcnow().timestamp()
         zone = "greenroom"
-        if ConfigClass.generate_project_process_file_folder in file_path:
-            generate_id = annotations.get("event_payload_generate_id")
+
+        nfs_output_path = '/'.join(output_path.split("/")[6:])
+        nfs_output_path = ConfigClass.NFS_ROOT_PATH + nfs_output_path
+
+        generate_id = annotations.get("event_payload_generate_id", "undefined")
         processed_file_size = 0
+        mc = Minio_Client(ConfigClass)
         try:
-            processed_file_size = os.path.getsize(file_path)
+            result = mc.client.stat_object(file_data["bucket"], output_path + "/" + file_name)
+            processed_file_size = result.size
+            version_id = result.version_id
         except Exception as e:
             self._logger.warning("Error when getting file size")
             self._logger.warning(str(e))
             self._logger.warning("Terminating creating metadata")
+
+
         if processed_file_size > 0:
             self.__logger_debug.debug(
                 "action triggered: " + datetime.datetime.now().isoformat())
             # v2 API
             from_parents = {
-                "full_path": input_path,
+                "global_entity_id": parent_node["global_entity_id"],
             }
-            store_file_meta_data_v2(
+
+            file_type = os.path.splitext(file_name)[1]
+            nfs_file_path = ConfigClass.MINIO_TMP_PATH + output_path + "/" + file_name
+            if file_type == ".zip":
+                zip_preview = generate_zip_preview(
+                    nfs_file_path, 
+                    file_data["bucket"], 
+                    output_path + "/" + file_name, 
+                    self._logger
+                )
+            created_node = store_file_meta_data_v2(
                 uploader,
                 file_name,
-                output_path,
+                nfs_output_path,
                 processed_file_size,
                 'processed by dicom_edit',
                 zone,
-                bucket_name,
+                parent_node["project_code"],
                 [],
                 generate_id,
                 'auto_trigger',
                 from_parents=from_parents,
                 process_pipeline=pipeline,
-                parent_folder_geid=parent_folder_geid
+                parent_folder_geid=parent_folder_geid,
+                object_path=output_path + "/" + file_name,
+                bucket=file_data["bucket"],
+                version_id=version_id
             )
-            create_lineage_v2(
-                input_path,
-                file_path,
-                bucket_name,
+
+            if file_type == ".zip":
+                save_preview(zip_preview, created_node["global_entity_id"], self._logger)
+                os.remove(nfs_file_path)
+
+            create_lineage_v3(
+                parent_node["global_entity_id"],
+                created_node["global_entity_id"],
+                parent_node["project_code"],
                 pipeline,
                 'dicom_edit Processed',
-                unix_process_time)
+                unix_process_time
+            )
 
     def __delete_job(self, job_name):
         try:
@@ -160,6 +201,13 @@ class StreamWatcher:
         stream = self.watcher.stream(
             self.batch_api.list_namespaced_job, ConfigClass.k8s_namespace)
         return stream
+
+    def parse_minio_location(self, path):
+        # parse from format minio://http://10.3.7.220/gr-generate/admin/generate_folder/ABC-1234_OIP.WH4UEecUNFLkLRAy3cbgQQHaEK.jpg
+        path = path.replace("minio://", "").replace("http://", "").split("/")
+        bucket = path[1]
+        path = '/'.join(path[2:])
+        return {"bucket": bucket, "path": path}
 
     def run(self):
         self._logger.info('Start Pipeline Job Stream Watching')

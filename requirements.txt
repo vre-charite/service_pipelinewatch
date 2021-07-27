@@ -25,3 +25,5 @@ toml==0.10.1
 urllib3==1.25.10
 websocket-client==0.57.0
 wrapt==1.12.1
+minio==7.0.3
+xmltodict==0.12.0

@@ -13,7 +13,8 @@ class SrvFileDataMgr(metaclass=MetaService):
 
     def create(self, uploader, file_name, path, file_size, desc, namespace,
                project_code, labels, generate_id, operator=None,
-               from_parents=None, process_pipeline=None, parent_folder_geid=None, original_geid=None):
+               from_parents=None, process_pipeline=None, parent_folder_geid=None, original_geid=None,
+               bucket="", object_path="", version_id=""):
 
         # fetch geid
         global_entity_id = self.fetch_guid()
@@ -31,7 +32,10 @@ class SrvFileDataMgr(metaclass=MetaService):
             "labels": labels,
             "generate_id": generate_id,
             "parent_folder_geid": parent_folder_geid if parent_folder_geid else "",
-            "original_geid": original_geid
+            "original_geid": original_geid,
+            "bucket": bucket,
+            "minio_object_path": object_path,
+            "version_id": version_id
         }
         if operator:
             post_json_form['operator'] = operator
@@ -123,10 +127,10 @@ class SrvFileDataMgr(metaclass=MetaService):
                 "detail": "archive_in_neo4j code error"
             }
 
-    def add_approval_copy_for_neo4j(self, parent_full_path, project_code):
+    def add_approval_copy_for_neo4j(self, geid, project_code):
         try:
             # get project information
-            get_project_url = ConfigClass.NEO4J_SERVICE + "nodes/Dataset/query"
+            get_project_url = ConfigClass.NEO4J_SERVICE + "nodes/Container/query"
             get_project_json = {
                 "code": project_code
             }
@@ -144,7 +148,7 @@ class SrvFileDataMgr(metaclass=MetaService):
             project_id = res_project_gotten.json()[0]['id']
             # get parent node
             parent_query = {
-                "full_path": parent_full_path,
+                "global_entity_id": geid,
             }
             res_parent_gotten = http_query_node("File", parent_query)
             print("res_parent_gotten", res_parent_gotten.text)
