@@ -12,6 +12,9 @@ from .on_data_transfer_v2 import on_data_transfer_succeed, on_data_transfer_fail
 from .on_data_delete_v2 import on_data_delete_succeed, on_data_delete_failed
 import requests
 from models.minio_client import Minio_Client
+from utils.meta_data_operations import location_decoder
+from utils.file_opertion_status import unlock_resource
+
 
 class StreamWatcher:
     def __init__(self, batch_api):
@@ -49,23 +52,36 @@ class StreamWatcher:
                     self.__logger_debug.debug(
                         job_name + ": " + my_final_status)
                     annotations = job.spec.template.metadata.annotations
+                    input_full_path = annotations["input_path"]
+                    output_full_path = annotations["output_path"]
+                    project_code = annotations["project"]
+                    gr_bucket = "gr-" + project_code
+                    core_bucket = "core-" + project_code
+                    input_key = os.path.join(gr_bucket, input_full_path)
+                    output_key = os.path.join(core_bucket, output_full_path)
                     if my_final_status == 'succeeded':
                         on_data_transfer_succeed(self._logger, annotations)
                         self.__delete_job(job_name)
                     else:
                         on_data_transfer_failed(self._logger, annotations)
                         self._logger.warning("Terminating creating metadata")
+                    # unlock resource
+                    unlock_resource(input_key)
+                    unlock_resource(output_key)
                 elif pipeline == EPipelineName.data_delete.name:
                     my_final_status = 'failed' if job.status.failed else 'succeeded'
                     self.__logger_debug.debug(
                         job_name + ": " + my_final_status)
                     annotations = job.spec.template.metadata.annotations
+                    location = annotations["event_payload_input_path"]
+                    ingestion_type, ingestion_host, ingestion_path = location_decoder(location)
                     if my_final_status == 'succeeded':
                         on_data_delete_succeed(self._logger, annotations)
                         self.__delete_job(job_name)
                     else:
                         on_data_delete_failed(self._logger, annotations)
                         self._logger.warning("Terminating creating metadata")
+                    unlock_resource(ingestion_path)
                 else:
                     self._logger.warning("Unknow pipeline job: " + pipeline)
             else:

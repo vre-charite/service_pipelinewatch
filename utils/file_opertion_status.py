@@ -108,3 +108,21 @@ class EActionState(Enum):
     RUNNING = 6
     ZIPPING = 7
     READY_FOR_DOWNLOADING = 8
+
+
+def lock_resource(resource_key):
+    url = ConfigClass.DATA_OPS_UT + 'resource/lock'
+    post_json = {
+        "resource_key": resource_key
+    }
+    response = requests.post(url, json=post_json)
+    return response
+
+
+def unlock_resource(resource_key):
+    url = ConfigClass.DATA_OPS_UT + 'resource/lock'
+    post_json = {
+        "resource_key": resource_key
+    }
+    response = requests.delete(url, json=post_json)
+    return response
