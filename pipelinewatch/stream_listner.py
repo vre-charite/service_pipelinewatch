@@ -84,6 +84,9 @@ class StreamWatcher:
                     unlock_resource(ingestion_path)
                 else:
                     self._logger.warning("Unknow pipeline job: " + pipeline)
+                    my_final_status = 'failed' if job.status.failed else 'succeeded'
+                    if my_final_status == 'succeeded':
+                        self.__delete_job(job_name)
             else:
                 self._logger.info(job_name + " runnning...")
         except Exception as expe:
