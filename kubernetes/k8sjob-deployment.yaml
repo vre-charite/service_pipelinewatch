@@ -32,6 +32,10 @@ spec:
           env:
           - name: env
             value: "charite"
+          - name: CONFIG_CENTER_ENABLED
+            value: "true"
+          - name: CONFIG_CENTER_BASE_URL
+            value: "http://common.utility:5062/"
           command: ["/home/deploy/worker_k8s_job_watch.py"]
           resources:
             requests:
