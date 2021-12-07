@@ -2,7 +2,7 @@ from config import ConfigClass
 from utils.k8s_client_factory import k8s_init, get_k8s_batchapi
 import os, logging, threading
 from pipelinewatch.stream_listner import StreamWatcher
-from pipelinewatch.airflow_listner import AirFlowStreamWatch
+# from pipelinewatch.airflow_listner import AirFlowStreamWatch
 from multiprocessing import Process
 from services.logger_services.logger_factory_service import SrvLoggerFactory
 
@@ -14,7 +14,7 @@ def main():
     watcher_processes = []
     # register watcher
     watcher_processes.append(wrap_stream_watch_process)
-    watcher_processes.append(AirFlowStreamWatch().run)
+    # watcher_processes.append(AirFlowStreamWatch().run)
     # start wathcers
     def run_process(watcher_p):
         watcher_p()

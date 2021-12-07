@@ -7,7 +7,6 @@ COPY .  ./
 RUN chown -R deploy:deploy /home/deploy
 USER deploy
 #RUN chmod +x /home/deploy/gunicorn_starter.sh
-RUN chmod +x /home/deploy/worker_air_flow_watch.py
 RUN chmod +x /home/deploy/worker_k8s_job_watch.py
 RUN pip install --no-cache-dir -r requirements.txt --user
 ENV PATH="/home/deploy/.local/bin:${PATH}"

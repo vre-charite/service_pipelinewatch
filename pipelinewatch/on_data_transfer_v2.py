@@ -1,19 +1,21 @@
-from posixpath import join
-from config import ConfigClass
-import os
 import datetime
-from copy import copy
-from services.file_meta.file_data_mgr import http_query_node
-from utils.meta_data_operations import get_folder_node_bypath, store_file_meta_data_v2, add_copied_with_approval, get_resource_bygeid, \
-    get_connected_nodes, fetch_geid, create_folder_node, http_update_node
-from utils.lineage_operations import create_lineage_v3
-from utils.file_opertion_status import update_file_operation_logs, update_file_operation_status_v2, EDataActionType, \
-    EActionState
+import os
+
+import requests
+
+from config import ConfigClass
 from models.enum_and_events import EPipelineName
 from models.folder import FolderMgr
-import requests
-import time
 from models.minio_client import Minio_Client
+from services.file_meta.file_data_mgr import http_query_node
+from utils.file_opertion_status import EActionState
+from utils.file_opertion_status import update_file_operation_logs
+from utils.file_opertion_status import update_file_operation_status_v2
+from utils.lineage_operations import create_lineage_v3
+from utils.meta_data_operations import add_copied_with_approval
+from utils.meta_data_operations import get_resource_bygeid
+from utils.meta_data_operations import http_update_node
+from utils.meta_data_operations import store_file_meta_data_v2
 
 
 def on_data_transfer_succeed(_logger, annotations):
@@ -52,6 +54,7 @@ def on_data_transfer_succeed(_logger, annotations):
             raise
         raise Exception("[Internal] Error when creating metadata: " + str(e))
 
+
 def on_data_transfer_failed(_logger, annotations):
     input_geid = annotations.get('event_payload_input_geid', None)
     if not input_geid:
@@ -77,23 +80,12 @@ def on_data_transfer_failed(_logger, annotations):
         EActionState.TERMINATED.name,
         payload={"message": "pipeline failed."})
 
+
 def on_single_file_transferred(_logger, annotations, source_node):
-    '''
-    when transferred a single file
-    '''
-    # default is None
-    destination_geid = annotations.get('event_payload_destination_geid')
-    destination = None
-    # get destination
-    if destination_geid and destination_geid != 'None':
-        destination = get_resource_bygeid(destination_geid)
-    input_full_path = annotations["input_path"]
-    output_full_path = annotations["output_path"]
-    output_file_name = os.path.basename(output_full_path)
-    output_path = os.path.dirname(output_full_path)
+    """When transferred a single file."""
+
     project_code = annotations["project"]
     bukcet_name = "core-" + project_code
-    # get project
     project_response = http_query_node('Container', {"code": project_code})
     project_info = project_response.json()[0]
     generate_id = annotations.get("generate_id", "undefined")
@@ -101,12 +93,10 @@ def on_single_file_transferred(_logger, annotations, source_node):
     session_id = annotations.get('event_payload_session_id', 'default_session')
     job_id = annotations.get('event_payload_job_id', 'default_job')
     operator = annotations.get('event_payload_operator', 'admin')
-    # generate meta information
     unix_process_time = datetime.datetime.utcnow().timestamp()
-    labels = source_node['labels']
     zone = 'vrecore'
+
     # get task payloads
-    versioning = ''
     url = ConfigClass.DATA_OPS_UT + "tasks"
     task_response = requests.get(
         url,
@@ -116,29 +106,39 @@ def on_single_file_transferred(_logger, annotations, source_node):
         }
     )
     my_task = task_response.json()['result'][0]
-    versioning = my_task['payload'].get('versioning', '')
-    source_folder = my_task['payload'].get('source_folder')
+    task_payload = my_task['payload']
+    versioning = task_payload.get('versioning', '')
+    source_folder = task_payload.get('source_folder')
+
+    input_full_path = task_payload['input_path']
+    output_full_path = task_payload['output_path']
+    output_file_name = os.path.basename(output_full_path)
+    output_path = os.path.dirname(output_full_path)
+
     if versioning == '':
         minio_cli = Minio_Client(ConfigClass)
         object_stat = minio_cli.client.stat_object(bukcet_name, output_full_path)
         _logger.debug("Minio versioning=======================" + object_stat.version_id)
         versioning = object_stat.version_id
+
     # Saving folder metadata
     created_folders_cache = []
     folder_mgr = FolderMgr(
-                created_folders_cache,
-                project_info["global_entity_id"],
-                project_code,
-                output_path,
-                [],
-                zone)
+        created_folders_cache,
+        project_info['global_entity_id'],
+        project_code,
+        output_path,
+        [],
+        zone,
+    )
     folder_mgr.create(uploader)
     last_folder_node = folder_mgr.last_node
+
     # Saving file metadata
     # v2 API
     from_parents = {
-        "global_entity_id": source_node['global_entity_id'],
-        "original_geid": source_node['global_entity_id']
+        'global_entity_id': source_node['global_entity_id'],
+        'original_geid': source_node['global_entity_id'],
     }
     file_node_stored = store_file_meta_data_v2(
         uploader,
@@ -157,17 +157,16 @@ def on_single_file_transferred(_logger, annotations, source_node):
         original_geid=source_node['global_entity_id'],
         bucket=bukcet_name,
         object_path=output_full_path,
-        version_id=versioning)
-    copy_zippreview(
-        source_node['global_entity_id'],
-        file_node_stored['global_entity_id'])
+        version_id=versioning,
+    )
+    copy_zippreview(source_node['global_entity_id'], file_node_stored['global_entity_id'])
+
     # update extra attibutes
     update_json = {}
     for k, v in source_node.items():
         if not k in file_node_stored:
             update_json[k] = v
-    updated_file_node_stored = http_update_node(
-        "File", file_node_stored['id'], update_json=update_json)
+    updated_file_node_stored = http_update_node("File", file_node_stored['id'], update_json=update_json)
     res = updated_file_node_stored.json()[0]
     refresh_node(file_node_stored, res)
     _logger.debug('Saved meta v2')
@@ -177,18 +176,18 @@ def on_single_file_transferred(_logger, annotations, source_node):
         project_code,
         EPipelineName.data_transfer.name,
         'data_transfer Processed',
-        unix_process_time)
+        unix_process_time,
+    )
     _logger.debug('Created Lineage v2')
+
     # add sys tags
-    res_add_copied_with_approval = add_copied_with_approval(
-        _logger, 'File', source_node['global_entity_id'], True)
+    res_add_copied_with_approval = add_copied_with_approval(_logger, 'File', source_node['global_entity_id'], True)
     if source_folder:
         res_source_folder_add_copied_with_approval = add_copied_with_approval(
-            _logger, 'Folder', source_folder['global_entity_id'], True)
-    res_update_status = update_file_operation_status_v2(session_id, job_id, zone,
-        EActionState.SUCCEED.name)
-    _logger.debug('res_update_status: ' +
-                  str(res_update_status.status_code))
+            _logger, 'Folder', source_folder['global_entity_id'], True
+        )
+    res_update_status = update_file_operation_status_v2(session_id, job_id, zone, EActionState.SUCCEED.name)
+    _logger.debug(f'res_update_status: {res_update_status.status_code}')
     res_update_audit_logs = update_file_operation_logs(
         uploader,
         operator,
@@ -196,10 +195,10 @@ def on_single_file_transferred(_logger, annotations, source_node):
         os.path.join('VRECore', output_full_path),
         source_node.get('file_size', 0),
         project_code,
-        generate_id
+        generate_id,
     )
-    _logger.debug('res_update_audit_logs: ' +
-                  str(res_update_audit_logs.status_code))
+    _logger.debug(f'res_update_audit_logs: {res_update_audit_logs.status_code}')
+
 
 def copy_zippreview(old_geid, new_geid):
     url = ConfigClass.DATA_OPS_GR + "archive"
@@ -222,10 +221,10 @@ def copy_zippreview(old_geid, new_geid):
     if post_response.status_code != 200:
         raise Exception(post_response.text)
 
+
 def get_resource_type(labels: list):
-    '''
-    Get resource type by neo4j labels
-    '''
+    """Get resource type by neo4j labels."""
+
     resources = ['File', 'TrashFile', 'Folder']
     for label in labels:
         if label in resources:

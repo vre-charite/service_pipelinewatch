@@ -1,110 +1,172 @@
 import os
+import requests
+from requests.models import HTTPError
+from pydantic import BaseSettings, Extra
+from typing import Dict, Set, List, Any
+from functools import lru_cache
+
+SRV_NAMESPACE = os.environ.get("APP_NAME", "service_pipelinewatch")
+CONFIG_CENTER_ENABLED = os.environ.get("CONFIG_CENTER_ENABLED", "false")
+CONFIG_CENTER_BASE_URL = os.environ.get("CONFIG_CENTER_BASE_URL", "NOT_SET")
+
+def load_vault_settings(settings: BaseSettings) -> Dict[str, Any]:
+    if CONFIG_CENTER_ENABLED == "false":
+        return {}
+    else:
+        return vault_factory(CONFIG_CENTER_BASE_URL)
+
+def vault_factory(config_center) -> dict:
+    url = f"{config_center}/v1/utility/config/{SRV_NAMESPACE}"
+    config_center_respon = requests.get(url)
+    if config_center_respon.status_code != 200:
+        raise HTTPError(config_center_respon.text)
+    return config_center_respon.json()['result']
 
 
-class ConfigClass(object):
-
-    env = os.environ.get('env', 'test')
-
+class Settings(BaseSettings):
+    port: int = 6063
+    host: str = "0.0.0.0"
+    env: str = "test"
+    namespace: str = ""
+    
     # greenroom queue
-    gm_queue_endpoint = 'message-bus-greenroom.greenroom'
-    gm_username = 'greenroom'
-    gm_password = 'indoc101'
+    gm_queue_endpoint: str
+    gm_username: str
+    gm_password: str
 
     # data_lake
-    data_lake = "/data/vre-storage"
-    tvb_project_code = "tvbcloud"
+    data_lake: str = "/data/vre-storage"
+    tvb_project_code: str = "tvbcloud"
     # disk mounts
-    NFS_ROOT_PATH = "/data/vre-storage"
-    VRE_ROOT_PATH = "/vre-data"
+    NFS_ROOT_PATH: str = "/data/vre-storage"
+    VRE_ROOT_PATH: str = "/vre-data"
 
-    QUEUE_SERVICE = "http://queue-producer.greenroom:6060/v1/"
-    DATA_OPS_GR = "http://dataops-gr.greenroom:5063/v1/"
-    DATA_OPS_GR_V2 = "http://dataops-gr.greenroom:5063/v2/"
-    DATA_OPS_UT = "http://dataops-ut.utility:5063/v1/"
-    DATA_OPS_UT_V2 = "http://dataops-ut.utility:5063/v2/"
-    NEO4J_SERVICE = "http://neo4j.utility:5062/v1/neo4j/"
-    NEO4J_SERVICE_V2 = "http://neo4j.utility:5062/v2/neo4j/"
-    CATALOGUING_SERVICE = "http://cataloguing.utility:5064/v1/"
-    CATALOGUING_SERVICE_V2 = "http://cataloguing.utility:5064/v2/"
-    UTILITY_SERVICE = "http://common.utility:5062/v1/"
-    ENTITY_INFO_SERVICE = "http://entityinfo.utility:5066/v1/"
-    PROVENANCE_SERVICE = "http://provenance.utility:5077/v1/"
+    QUEUE_SERVICE: str
+    DATA_OPS_GR: str
+    DATA_OPS_UTIL: str
+    NEO4J_SERVICE: str
+    CATALOGUING_SERVICE: str
+    UTILITY_SERVICE: str
+    ENTITYINFO_SERVICE: str
+    PROVENANCE_SERVICE: str
 
     # k8s_namespace
-    k8s_namespace = "greenroom"
+    k8s_namespace: str = "greenroom"
 
     # pipeline_job_peek_interval
-    pipeline_job_peek_interval = 60
+    pipeline_job_peek_interval: int = 60
 
     # airflow
-    service_airflow_url = "http://10.3.7.235:8080"
-    airflow_job_peek_interval = 5
+    airflow_job_peek_interval: int = 5
 
     # generate project
-    generate_project_process_file_folder = "/generate/processed/"
+    generate_project_process_file_folder: str = "/generate/processed/"
 
     # Redis Service
-    REDIS_HOST = "redis-master.utility"
-    REDIS_PORT = 6379
-    REDIS_DB = 0
-    REDIS_PASSWORD = {
-        'staging': '8EH6QmEYJN',
-        'charite': 'o2x7vGQx6m'
-    }.get(env, "5wCCMMC1Lk")
+    REDIS_HOST: str
+    REDIS_PORT: str
+    REDIS_DB: str
+    REDIS_PASSWORD: str
 
     # system tags
-    copied_with_approval = 'copied-to-core'
+    copied_with_approval: str = "copied-to-core"
 
-    if env == 'test':
-        REDIS_HOST = "10.3.7.233"
-        QUEUE_SERVICE = "http://queue-producer.greenroom:6060/v1/"
-        DATA_OPS_GR = "http://10.3.7.234:5063/v1/"
-        DATA_OPS_GR_V2 = "http://10.3.7.234:5063/v2/"
-        DATA_OPS_UT = "http://10.3.7.239:5063/v1/"
-        DATA_OPS_UT_V2 = "http://10.3.7.239:5063/v2/"
-        NEO4J_SERVICE = "http://10.3.7.216:5062/v1/neo4j/"
-        NEO4J_SERVICE_V2 = "http://10.3.7.216:5062/v2/neo4j/"
-        CATALOGUING_SERVICE = "http://10.3.7.237:5064/v1/"
-        CATALOGUING_SERVICE_V2 = "http://10.3.7.237:5064/v2/"
-        UTILITY_SERVICE = "http://10.3.7.222:5062/v1/"
-        ENTITY_INFO_SERVICE = "http://10.3.7.228:5066/v1/"
-        PROVENANCE_SERVICE = "http://10.3.7.202:5077/v1/"
-
-    debug_mode = False
+    debug_mode: bool = False
 
     # minio config
-    MINIO_OPENID_CLIENT = "react-app"
-    MINIO_ENDPOINT = "minio.minio:9000"
-    MINIO_HTTPS = False
-    KEYCLOAK_URL = "http://keycloak.utility:8080"
-    MINIO_ACCESS_KEY = "indoc-minio"
-    MINIO_SECRET_KEY = "Trillian42!"
-    MINIO_TMP_PATH = "/data/vre-storage/tmp/"
+    MINIO_OPENID_CLIENT: str
+    MINIO_ENDPOINT: str
+    MINIO_HTTPS: str
+    KEYCLOAK_URL: str
+    MINIO_ACCESS_KEY: str
+    MINIO_SECRET_KEY: str
+    MINIO_TMP_PATH: str = "/data/vre-storage/tmp/"
+    
+    class Config:
+        env_file = '.env'
+        env_file_encoding = 'utf-8'
+        extra = Extra.allow
 
-    if env == "test":
-        # minio config
-        MINIO_ENDPOINT = "10.3.7.220"
-        MINIO_HTTPS = False
-        KEYCLOAK_URL = "http://10.3.7.220" # for local test ONLY
+        @classmethod
+        def customise_sources(
+            cls,
+            init_settings,
+            env_settings,
+            file_secret_settings,
+        ):
+            return (
+                load_vault_settings,
+                env_settings,
+                init_settings,
+                file_secret_settings,
+            )
+    
 
+@lru_cache(1)
+def get_settings():
+    settings =  Settings()
+    return settings
 
-    # MINIO_OPENID_CLIENT = "react-app"
-    # if env == "staging":
-    #     # MINIO_ENDPOINT = "10.3.7.240:80"
-    #     MINIO_ENDPOINT = "minio.minio:9000"
-    #     MINIO_HTTPS = False
-    #     KEYCLOAK_URL = "http://10.3.7.240:80"
-    #     MINIO_TEST_PASS = "IndocStaging2021!"
-    # elif env == "test":
-    #     MINIO_ENDPOINT = "10.3.7.220"
-    #     MINIO_HTTPS = False
-    #     KEYCLOAK_URL = "http://keycloak.utility:8080"
-    #     KEYCLOAK_URL = "http://10.3.7.220"
-    #     MINIO_TEST_PASS = "admin"
+class ConfigClass(object):
+    settings = get_settings()
 
-    # else:
-    #     MINIO_ENDPOINT = "10.3.7.220"
-    #     MINIO_HTTPS = False
-    #     KEYCLOAK_URL = "http://keycloak.utility:8080"
-    #     # KEYCLOAK_URL = "http://10.3.7.220" # for local test ONLY
-    #     MINIO_TEST_PASS = "admin"
+    version = "0.1.0"
+    env = settings.env
+    disk_namespace = settings.namespace
+    
+    # greenroom queue
+    gm_queue_endpoint = settings.gm_queue_endpoint
+    gm_username = settings.gm_username
+    gm_password = settings.gm_password
+
+    # data_lake
+    data_lake = settings.data_lake
+    tvb_project_code = settings.tvb_project_code
+    # disk mounts
+    NFS_ROOT_PATH = settings.NFS_ROOT_PATH
+    VRE_ROOT_PATH = settings.VRE_ROOT_PATH
+
+    QUEUE_SERVICE = settings.QUEUE_SERVICE + "/v1/"
+    DATA_OPS_GR = settings.DATA_OPS_GR + "/v1/"
+    DATA_OPS_GR_V2 = settings.DATA_OPS_GR + "/v2/"
+    DATA_OPS_UT = settings.DATA_OPS_UTIL + "/v1/"
+    DATA_OPS_UT_V2 = settings.DATA_OPS_UTIL + "/v2/"
+    NEO4J_SERVICE = settings.NEO4J_SERVICE + "/v1/neo4j/"
+    NEO4J_SERVICE_V2 = settings.NEO4J_SERVICE + "/v2/neo4j/"
+    CATALOGUING_SERVICE = settings.CATALOGUING_SERVICE + "/v1/"
+    CATALOGUING_SERVICE_V2 = settings.CATALOGUING_SERVICE + "/v2/"
+    UTILITY_SERVICE = settings.UTILITY_SERVICE + "/v1/"
+    ENTITY_INFO_SERVICE = settings.ENTITYINFO_SERVICE + "/v1/"
+    PROVENANCE_SERVICE = settings.PROVENANCE_SERVICE + "/v1/"
+
+    # k8s_namespace
+    k8s_namespace = settings.k8s_namespace
+
+    # pipeline_job_peek_interval
+    pipeline_job_peek_interval = settings.pipeline_job_peek_interval
+
+    # airflow
+    airflow_job_peek_interval = settings.airflow_job_peek_interval
+
+    # generate project
+    generate_project_process_file_folder = settings.generate_project_process_file_folder
+
+    # Redis Service
+    REDIS_HOST = settings.REDIS_HOST
+    REDIS_PORT = int(settings.REDIS_PORT)
+    REDIS_DB = int(settings.REDIS_DB)
+    REDIS_PASSWORD = settings.REDIS_PASSWORD
+
+    # system tags
+    copied_with_approval = settings.copied_with_approval
+
+    debug_mode = settings.debug_mode
+
+    # minio config
+    MINIO_OPENID_CLIENT = settings.MINIO_OPENID_CLIENT
+    MINIO_ENDPOINT = settings.MINIO_ENDPOINT
+    MINIO_HTTPS = settings.MINIO_HTTPS == "TRUE"
+    KEYCLOAK_URL = settings.KEYCLOAK_URL
+    MINIO_ACCESS_KEY = settings.MINIO_ACCESS_KEY
+    MINIO_SECRET_KEY = settings.MINIO_SECRET_KEY
+    MINIO_TMP_PATH = settings.MINIO_TMP_PATH

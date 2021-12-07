@@ -231,7 +231,9 @@ def on_single_file_deleted(_logger, annotations, source_node):
     from_parents = {
         "global_entity_id": source_node["global_entity_id"],
     }
+    
     # create trash file node
+    trash_display_path = source_object_name.replace(source_node['name'], output_file_name)
     trash_node_stored = store_file_meta_data_v2(
         source_node['uploader'],
         output_file_name,
@@ -241,14 +243,14 @@ def on_single_file_deleted(_logger, annotations, source_node):
         zone,
         project_code,
         source_node.get('tags', []),
-        source_node['generate_id'],
+        source_node.get("generate_id", ""),
         operator,
         from_parents=from_parents,
         process_pipeline=EPipelineName.data_delete.name,
         parent_folder_geid=parent_folder_node['global_entity_id'] if parent_folder_node
         else None,
         bucket=source_bucket_name,
-        object_path=source_object_name,
+        object_path=trash_display_path,
         version_id=source_node.get('version_id', '')
     )
     # update labels
@@ -269,15 +271,15 @@ def on_single_file_deleted(_logger, annotations, source_node):
     # archive data in atlas
     file_data_mgr = SrvFileDataMgr()
     file_data_mgr.archive(
-        os.path.dirname(source_node['full_path']),
+        os.path.dirname(source_node.get("full_path", "")),
         source_node['name'],
-        os.path.dirname(trash_node_stored['full_path']),
+        os.path.dirname(trash_node_stored.get("full_path", "")),
         trash_node_stored['name'],
         operator,
         update_file_name_suffix,
         trash_node_stored['global_entity_id'],
         _logger,
-        os.path.dirname(source_node['full_path']))
+        os.path.dirname(source_node.get("full_path", "")))
     create_lineage_v3(
         source_node['global_entity_id'],
         trash_node_stored['global_entity_id'],

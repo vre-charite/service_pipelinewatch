@@ -42,8 +42,8 @@ class StreamWatcher:
                         job_name + ": " + my_final_status)
                     if my_final_status == 'succeeded':
                         annotations = job.spec.template.metadata.annotations
-                        self._on_dicom_edit_succeed(
-                            pipeline, job_name, annotations)
+                        # self._on_dicom_edit_succeed(
+                        #     pipeline, job_name, annotations)
                         self.__delete_job(job_name)
                     else:
                         self._logger.warning("Terminating creating metadata")
