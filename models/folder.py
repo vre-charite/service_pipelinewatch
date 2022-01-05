@@ -1,10 +1,10 @@
 import os
-from typing import List
+
 import requests
-from utils.meta_data_operations import fetch_geid
+
 from config import ConfigClass
 from services.logger_services.logger_factory_service import SrvLoggerFactory
-from functools import partial
+from utils.meta_data_operations import fetch_geid
 
 _file_mgr_logger = SrvLoggerFactory("folder_manager").get_logger()
 
@@ -111,20 +111,24 @@ class FolderNode:
         return self.exist
 
     def read_from_db(self):
-        '''
-        read from database
-        '''
+        """Read from database."""
+
         query = {
             "folder_relative_path": self.folder_relative_path,
             "name": self.folder_name,
             "project_code": self.project_code
         }
-        respon_query = http_query_node_zone(self.zone, query)
-        if respon_query.status_code == 200:
-            json_respon = respon_query.json().get('result')
-            found = [node for node in json_respon if node["folder_relative_path"] ==
-                     self.folder_relative_path and node["name"] == self.folder_name
-                     and node["project_code"] == self.project_code]
+        response_query = http_query_node_zone(self.zone, query)
+        if response_query.status_code == 200:
+            json_response = response_query.json().get('result')
+            found = [
+                node
+                for node in json_response
+                if node['folder_relative_path'] == self.folder_relative_path
+                and node['name'] == self.folder_name
+                and node['project_code'] == self.project_code
+                and node['archived'] is False
+            ]
             if found:
                 _file_mgr_logger.debug(
                     "[DEBUG] Found on DBs: {}, folder query payload {}".format(str(found), str(query)))
