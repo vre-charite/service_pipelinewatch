@@ -26,7 +26,7 @@ spec:
       serviceAccountName: consumer-serviceaccount
       containers:
         - name: pipelinewatch-airflow
-          image: 10.32.42.225:5000/pipelinewatch:<VERSION>
+          image: s-hdp-vre-v007.charite.de/pipelinewatch:<VERSION>
           ports:
             - containerPort: 6063
           env:
