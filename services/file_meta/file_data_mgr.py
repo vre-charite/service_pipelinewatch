@@ -1,3 +1,23 @@
+# Copyright 2022 Indoc Research
+# 
+# Licensed under the EUPL, Version 1.2 or – as soon they
+# will be approved by the European Commission - subsequent
+# versions of the EUPL (the "Licence");
+# You may not use this work except in compliance with the
+# Licence.
+# You may obtain a copy of the Licence at:
+# 
+# https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12
+# 
+# Unless required by applicable law or agreed to in
+# writing, software distributed under the Licence is
+# distributed on an "AS IS" basis,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+# express or implied.
+# See the Licence for the specific language governing
+# permissions and limitations under the Licence.
+# 
+
 from models.service_meta_class import MetaService
 import requests
 from config import ConfigClass
@@ -12,7 +32,7 @@ class SrvFileDataMgr(metaclass=MetaService):
         self.__logger = SrvLoggerFactory(self.name).get_logger()
 
     def create(self, uploader, file_name, path, file_size, desc, namespace,
-               project_code, labels, generate_id, operator=None,
+               project_code, labels, dcm_id, operator=None,
                from_parents=None, process_pipeline=None, parent_folder_geid=None, original_geid=None,
                bucket="", object_path="", version_id=""):
 
@@ -30,7 +50,7 @@ class SrvFileDataMgr(metaclass=MetaService):
             "namespace": namespace,
             "project_code": project_code,
             "labels": labels,
-            "generate_id": generate_id,
+            "dcm_id": dcm_id,
             "parent_folder_geid": parent_folder_geid if parent_folder_geid else "",
             "original_geid": original_geid,
             "bucket": bucket,
@@ -102,7 +122,7 @@ class SrvFileDataMgr(metaclass=MetaService):
             parent_node = res_parent_gotten.json()[0]
             neo4j_id = parent_node['id']
             # update parent file
-            update_url = ConfigClass.NEO4J_SERVICE + \
+            update_url = ConfigClass.NEO4J_SERVICE_V1 + \
                 "nodes/File/node/{}".format(neo4j_id)
             update_json = {
                 "archived": True,
@@ -130,7 +150,7 @@ class SrvFileDataMgr(metaclass=MetaService):
     def add_approval_copy_for_neo4j(self, geid, project_code):
         try:
             # get project information
-            get_project_url = ConfigClass.NEO4J_SERVICE + "nodes/Container/query"
+            get_project_url = ConfigClass.NEO4J_SERVICE_V1 + "nodes/Container/query"
             get_project_json = {
                 "code": project_code
             }
@@ -245,7 +265,7 @@ def http_query_node(main_label, query_params={}):
     payload = {
         **query_params
     }
-    node_query_url = ConfigClass.NEO4J_SERVICE + \
+    node_query_url = ConfigClass.NEO4J_SERVICE_V1 + \
         "nodes/{}/query".format(main_label)
     response = requests.post(node_query_url, json=payload)
     return response

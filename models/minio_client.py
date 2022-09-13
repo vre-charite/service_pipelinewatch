@@ -1,60 +1,65 @@
+# Copyright 2022 Indoc Research
+# 
+# Licensed under the EUPL, Version 1.2 or – as soon they
+# will be approved by the European Commission - subsequent
+# versions of the EUPL (the "Licence");
+# You may not use this work except in compliance with the
+# Licence.
+# You may obtain a copy of the Licence at:
+# 
+# https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12
+# 
+# Unless required by applicable law or agreed to in
+# writing, software distributed under the Licence is
+# distributed on an "AS IS" basis,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+# express or implied.
+# See the Licence for the specific language governing
+# permissions and limitations under the Licence.
+# 
+
 import requests
 from minio import Minio
 from minio.commonconfig import Tags
 from minio.credentials.providers import ClientGrantsProvider
 from minio.commonconfig import REPLACE, CopySource
+from config import ConfigClass
 
 
 class Minio_Client():
 
-    def __init__(self, _config):
-        # set config
-        self._config = _config
-        # # retrieve credential provide with tokens
-        # c = self.get_provider()
-
-        # self.client = Minio(
-        #     self._config.MINIO_ENDPOINT,
-        #     c.access_key,
-        #     c.secret_key,
-        #     session_token=c.session_token,
-        #     credentials=c,
-        #     secure=self._config.MINIO_HTTPS)
-
-        # retrieve credential provide with tokens
-        # c = self.get_provider()
-
+    def __init__(self):
         # Temperary use the credential
         self.client = Minio(
-            self._config.MINIO_ENDPOINT, 
-            access_key=self._config.MINIO_ACCESS_KEY,
-            secret_key=self._config.MINIO_SECRET_KEY,
-            secure=self._config.MINIO_HTTPS)
+            ConfigClass.MINIO_ENDPOINT, 
+            access_key=ConfigClass.MINIO_ACCESS_KEY,
+            secret_key=ConfigClass.MINIO_SECRET_KEY,
+            secure=ConfigClass.MINIO_HTTPS)
 
 
 
     def _get_jwt(self):
         # first login with keycloak
         username = "admin"
-        password = self._config.MINIO_TEST_PASS
+        password = ConfigClass.MINIO_TEST_PASS
         payload = {
             "grant_type": "password",
             "username": username,
             "password": password,
-            "client_id": self._config.MINIO_OPENID_CLIENT,
+            "client_id": ConfigClass.MINIO_OPENID_CLIENT,
         }
         headers = {
             "Content-Type": "application/x-www-form-urlencoded"
         }
 
         result = requests.post(
-            self._config.KEYCLOAK_URL+"/vre/auth/realms/vre/protocol/openid-connect/token", data=payload, headers=headers)
+            ConfigClass.KEYCLOAK_ENDPOINT, data=payload, headers=headers)
         keycloak_access_token = result.json().get("access_token")
         return result.json()
 
     def get_provider(self):
-        minio_http = ("https://" if self._config.MINIO_HTTPS else "http://") + \
-            self._config.MINIO_ENDPOINT
+        minio_http = ("https://" if ConfigClass.MINIO_HTTPS else "http://") + \
+            ConfigClass.MINIO_ENDPOINT
         print(minio_http)
         provider = ClientGrantsProvider(
             self._get_jwt,

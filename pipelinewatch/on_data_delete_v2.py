@@ -1,3 +1,23 @@
+# Copyright 2022 Indoc Research
+# 
+# Licensed under the EUPL, Version 1.2 or – as soon they
+# will be approved by the European Commission - subsequent
+# versions of the EUPL (the "Licence");
+# You may not use this work except in compliance with the
+# Licence.
+# You may obtain a copy of the Licence at:
+# 
+# https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12
+# 
+# Unless required by applicable law or agreed to in
+# writing, software distributed under the Licence is
+# distributed on an "AS IS" basis,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+# express or implied.
+# See the Licence for the specific language governing
+# permissions and limitations under the Licence.
+# 
+
 import imp
 import os
 import datetime
@@ -78,7 +98,7 @@ def on_data_delete_failed(_logger, annotations):
     labels = source_node['labels']
     resource_type = get_resource_type(labels)
     _logger.info("resource_type: " + str(resource_type))
-    zone = "greenroom" if "Greenroom" in source_node['labels'] else 'vrecore'
+    zone = ConfigClass.GR_ZONE_LABEL.lower() if ConfigClass.GR_ZONE_LABEL in source_node['labels'] else ConfigClass.CORE_ZONE_LABEL.lower()
     res_update_status = update_file_operation_status_v2(session_id, job_id, zone,
                                                         EActionState.TERMINATED.name,
                                                         payload={"message": "pipeline failed."})
@@ -109,7 +129,6 @@ def on_single_file_deleted(_logger, annotations, source_node):
     job_id = annotations.get('event_payload_job_id', 'default_job')
     operator = annotations.get('event_payload_operator', '')
     uploader = annotations.get('event_payload_uploader', '')
-    generate_id = annotations.get('event_payload_generate_id', '')
     unix_process_time = datetime.datetime.utcnow().timestamp()
     myfilename, file_extension = os.path.splitext(output_file_name)
     updated_file_name = output_file_name
@@ -120,7 +139,7 @@ def on_single_file_deleted(_logger, annotations, source_node):
     source_bucket_name = splits_ingestion[0]
     source_object_name = splits_ingestion[1]
     neo4j_zone = get_zone(source_node['labels'])
-    zone = "greenroom" if "Greenroom" in source_node['labels'] else 'vrecore'
+    zone = ConfigClass.GR_ZONE_LABEL.lower() if ConfigClass.GR_ZONE_LABEL in source_node['labels'] else ConfigClass.CORE_ZONE_LABEL.lower()
     _logger.debug(
         "_on_file_delete_succeed annotations: " + str(annotations))
     # get task payloads
@@ -243,7 +262,7 @@ def on_single_file_deleted(_logger, annotations, source_node):
         zone,
         project_code,
         source_node.get('tags', []),
-        source_node.get("generate_id", ""),
+        source_node.get("dcm_id", ""),
         operator,
         from_parents=from_parents,
         process_pipeline=EPipelineName.data_delete.name,
@@ -315,7 +334,6 @@ def on_single_file_deleted(_logger, annotations, source_node):
         os.path.join(neo4j_zone, 'Trash', output_full_path),
         source_node.get('file_size', 0),
         project_code,
-        generate_id,
         EDataActionType.data_delete.name
     )
     _logger.debug('res_update_audit_logs: ' +
@@ -339,7 +357,7 @@ def get_zone(labels: list):
     '''
     Get resource type by neo4j labels
     '''
-    zones = ['Greenroom', 'VRECore']
+    zones = [ConfigClass.GR_ZONE_LABEL, ConfigClass.CORE_ZONE_LABEL]
     for label in labels:
         if label in zones:
             return label
