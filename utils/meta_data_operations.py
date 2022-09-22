@@ -1,3 +1,23 @@
+# Copyright 2022 Indoc Research
+# 
+# Licensed under the EUPL, Version 1.2 or – as soon they
+# will be approved by the European Commission - subsequent
+# versions of the EUPL (the "Licence");
+# You may not use this work except in compliance with the
+# Licence.
+# You may obtain a copy of the Licence at:
+# 
+# https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12
+# 
+# Unless required by applicable law or agreed to in
+# writing, software distributed under the Licence is
+# distributed on an "AS IS" basis,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+# express or implied.
+# See the Licence for the specific language governing
+# permissions and limitations under the Licence.
+# 
+
 from os import DirEntry
 import requests
 import json
@@ -11,7 +31,7 @@ from services.file_meta.file_data_mgr import SrvFileDataMgr
 
 
 def store_file_meta_data_v2(uploader, output_file_name, output_path, file_size, desc, namespace,
-                            project_name, labels, generate_id="undefined", operator=None,
+                            project_name, labels, dcm_id="undefined", operator=None,
                             from_parents=None, process_pipeline=None, parent_folder_geid=None, original_geid=None,
                             bucket="", object_path="", version_id=""):
     file_data_mgr = SrvFileDataMgr()
@@ -24,7 +44,7 @@ def store_file_meta_data_v2(uploader, output_file_name, output_path, file_size, 
         namespace,
         project_name,
         labels,
-        generate_id,
+        dcm_id,
         operator,
         from_parents,
         process_pipeline,
@@ -51,9 +71,9 @@ def archive_file_data(path, file_name, trash_path, trash_file_name, operator, pr
 
 
 def store_file_meta_data(output_full_path, bucket_name, file_name, raw_file_path,
-                         size, pipeline, job_name, status, generate_id="undefined", uploader=None):
+                         size, pipeline, job_name, status, dcm_id="undefined", uploader=None):
     _logger = SrvLoggerFactory('main').get_logger()
-    my_url = ConfigClass.DATA_OPS_GR
+    my_url = ConfigClass.DATA_OPS_GR_V1
     payload = {
         "path": output_full_path,
         "bucket_name": bucket_name,
@@ -63,7 +83,7 @@ def store_file_meta_data(output_full_path, bucket_name, file_name, raw_file_path
         "process_pipeline": pipeline,
         "job_name": job_name,
         "status": status,
-        "generate_id": generate_id,
+        "dcm_id": dcm_id,
     }
     if uploader:
         payload['owner'] = uploader
@@ -78,64 +98,8 @@ def store_file_meta_data(output_full_path, bucket_name, file_name, raw_file_path
     return res.json()
 
 
-def store_file_meta_data_raw(path, bucket_name, file_name, raw_file_path, size, pipeline, job_name, status):
-    _logger = SrvLoggerFactory('main').get_logger()
-    # create entity in atlas
-    post_data = {
-        'referredEntities': {},
-        'entity': {
-            'typeName': 'nfs_file',
-            'attributes': {
-                'owner': bucket_name,
-                'modifiedTime': 0,
-                'replicatedTo': None,
-                'userDescription': None,
-                'isFile': False,
-                'numberOfReplicas': 0,
-                'replicatedFrom': None,
-                'qualifiedName': file_name,
-                'displayName': None,
-                'description': None,
-                'extendedAttributes': None,
-                'nameServiceId': None,
-                'path': file_name,
-                'posixPermissions': None,
-                'createTime': time.time(),
-                'fileSize': size,
-                'clusterName': None,
-                'name': file_name,
-                'isSymlink': False,
-                'group': None,
-                'updateBy': pipeline,
-                'bucketName': bucket_name,
-                'fileName': file_name,
-                'generateID': 'undefined'
-            },
-            'isIncomplete': False,
-            'status': 'ACTIVE',
-            'createdBy': pipeline,
-            'version': 0,
-            'relationshipAttributes': {
-                'schema': [],
-                'inputToProcesses': [],
-                'meanings': [],
-                'outputFromProcesses': []
-            },
-            'customAttributes': {
-                'generateID': 'undefined'
-            },
-            'labels': ['pipelinegenerate']
-        }
-    }
-    res = requests.post(ConfigClass.CATALOGUING_SERVICE + 'entity',
-                        json=post_data, headers={'content-type': 'application/json'})
-    if res.status_code != 200:
-        raise Exception(res.text)
-    return res.json()
-
-
 def add_copied_with_approval(_logger, resource_type, geid, inherit=False):
-    # only can be used to transfer data to VRE CORE
+    # only can be used to transfer data to CORE
     # neo4j version -----------------------------------------------------------------------------------
     url = ConfigClass.DATA_OPS_UT_V2 + "{}/{}/systags".format(resource_type, geid)
     request_payload = {
@@ -212,7 +176,7 @@ def get_connected_nodes(geid, direction: str = "both"):
         params = {
             "direction": "input"
         }
-        url = ConfigClass.NEO4J_SERVICE + "relations/connected/{}".format(geid)
+        url = ConfigClass.NEO4J_SERVICE_V1 + "relations/connected/{}".format(geid)
         response = requests.get(url, params=params)
         if response.status_code != 200:
             raise Exception('Internal error for neo4j service, \
@@ -221,7 +185,7 @@ def get_connected_nodes(geid, direction: str = "both"):
         params = {
             "direction": "output"
         }
-        url = ConfigClass.NEO4J_SERVICE + "relations/connected/{}".format(geid)
+        url = ConfigClass.NEO4J_SERVICE_V1 + "relations/connected/{}".format(geid)
         response = requests.get(url, params=params)
         if response.status_code != 200:
             raise Exception('Internal error for neo4j service, \
@@ -230,7 +194,7 @@ def get_connected_nodes(geid, direction: str = "both"):
     params = {
         "direction": direction
     }
-    url = ConfigClass.NEO4J_SERVICE + "relations/connected/{}".format(geid)
+    url = ConfigClass.NEO4J_SERVICE_V1 + "relations/connected/{}".format(geid)
     response = requests.get(url, params=params)
     if response.status_code != 200:
         raise Exception('Internal error for neo4j service, \
@@ -250,7 +214,7 @@ def create_folder_node(zone, geid, name, level, project_code, uploader,
         "folder_parent_name": parent_name,
         "uploader": uploader,
         "folder_relative_path": relative_path,
-        "zone": zone,  # "greenroom | vrecore"
+        "zone": zone,  # "greenroom | core"
         "project_code": project_code,
         "folder_tags": tags,
         "extra_labels": extra_labels,
@@ -264,7 +228,7 @@ def create_folder_node(zone, geid, name, level, project_code, uploader,
 
 def http_update_node(primary_label, neo4j_id, update_json):
     # update neo4j node
-    update_url = ConfigClass.NEO4J_SERVICE + \
+    update_url = ConfigClass.NEO4J_SERVICE_V1 + \
         "nodes/{}/node/{}".format(primary_label, neo4j_id)
     res = requests.put(url=update_url, json=update_json)
     return res
@@ -342,7 +306,7 @@ def location_decoder(location: str):
     return ingestion_type, ingestion_host, ingestion_path
 
 def update_node_label(node_id, labels):
-    url = ConfigClass.NEO4J_SERVICE + "nodes/{}/labels".format(node_id)
+    url = ConfigClass.NEO4J_SERVICE_V1 + "nodes/{}/labels".format(node_id)
     payload = {
         "labels": labels
     }

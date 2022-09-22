@@ -1,3 +1,23 @@
+# Copyright 2022 Indoc Research
+# 
+# Licensed under the EUPL, Version 1.2 or – as soon they
+# will be approved by the European Commission - subsequent
+# versions of the EUPL (the "Licence");
+# You may not use this work except in compliance with the
+# Licence.
+# You may obtain a copy of the Licence at:
+# 
+# https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12
+# 
+# Unless required by applicable law or agreed to in
+# writing, software distributed under the Licence is
+# distributed on an "AS IS" basis,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+# express or implied.
+# See the Licence for the specific language governing
+# permissions and limitations under the Licence.
+# 
+
 import os
 
 import requests
@@ -80,7 +100,7 @@ class FolderNode:
             'folder_parent_name': None,
             'folder_creator': creator,
             'folder_relative_path': folder_relative_path,
-            'zone': get_zone(zone),
+            'zone': zone,
             'project_code': project_code,
             'folder_tags': [],
         }
@@ -140,7 +160,7 @@ class FolderNode:
                     'folder_parent_name': "",
                     'folder_creator': found[0]["uploader"],
                     'folder_relative_path': found[0]["folder_relative_path"],
-                    'zone': get_zone(os.environ.get('namespace')),
+                    'zone': os.environ.get('namespace'),
                     'project_code': found[0]["project_code"],
                     'folder_tags': found[0]["tags"],
                 }
@@ -248,30 +268,21 @@ class FolderNode:
     def project_code(self):
         return self.__attribute_map['project_code']
 
-
-def get_zone(namespace: str):
-    return {
-        "vre": "vrecore",
-        "vrecore": "vrecore",
-        "greenroom": "greenroom",
-        "Greenroom": "greenroom",
-        "Vrecore": "vrecore"
-    }.get(namespace, "greenroom")
-
-
 def http_query_node(namespace, query_params={}):
     payload = {
         **query_params
     }
-    node_query_url = ConfigClass.NEO4J_SERVICE + "nodes/Folder/query"
+    node_query_url = ConfigClass.NEO4J_SERVICE_V1 + "nodes/Folder/query"
     response = requests.post(node_query_url, json=payload)
     return response
 
 
 def http_query_node_zone(namespace, query_params={}, extra_labels=[]):
-    if namespace.lower() in ['vrecore', 'greenroom']:
-        zone = {'vrecore': 'VRECore',
-                'greenroom': 'Greenroom'}.get(namespace.lower())
+    core = ConfigClass.CORE_ZONE_LABEL.lower()
+    greenroom = ConfigClass.GR_ZONE_LABEL.lower()
+    if namespace.lower() in [core, greenroom]:
+        zone = {core: ConfigClass.CORE_ZONE_LABEL,
+                greenroom: ConfigClass.GR_ZONE_LABEL}.get(namespace.lower())
         zone_label = ['Folder', zone]
     else:
         zone_label = ['Folder']

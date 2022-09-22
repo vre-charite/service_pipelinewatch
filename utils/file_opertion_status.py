@@ -1,3 +1,23 @@
+# Copyright 2022 Indoc Research
+# 
+# Licensed under the EUPL, Version 1.2 or – as soon they
+# will be approved by the European Commission - subsequent
+# versions of the EUPL (the "Licence");
+# You may not use this work except in compliance with the
+# Licence.
+# You may obtain a copy of the Licence at:
+# 
+# https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12
+# 
+# Unless required by applicable law or agreed to in
+# writing, software distributed under the Licence is
+# distributed on an "AS IS" basis,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+# express or implied.
+# See the Licence for the specific language governing
+# permissions and limitations under the Licence.
+# 
+
 import requests
 import os
 from enum import Enum
@@ -5,18 +25,6 @@ from config import ConfigClass
 from services.logger_services.logger_factory_service import SrvLoggerFactory
 
 _logger = SrvLoggerFactory('file_operation_status').get_logger()
-
-
-def get_frontend_zone(my_disk_namespace: str):
-    '''
-    disk namespace to path
-    '''
-    return {
-        "greenroom": "Green Room",
-        "vre": "VRE Core",
-        "vrecore": "VRE Core"
-    }.get(my_disk_namespace, None)
-
 
 def update_file_operation_status(session_id, job_id, action_type, project_code, operator, source, zone):
     '''
@@ -31,7 +39,7 @@ def update_file_operation_status(session_id, job_id, action_type, project_code, 
         "progress": "100",
         "add_payload": {
             "zone": zone,
-            "frontend_zone": get_frontend_zone(zone)
+            # "frontend_zone": get_frontend_zone(zone)
         }
     }
     res_update_status = requests.put(
@@ -53,7 +61,7 @@ def update_file_operation_status_v2(session_id, job_id, zone, status, payload={}
         "progress": "100",
         "add_payload": {
             "zone": zone,
-            "frontend_zone": get_frontend_zone(zone),
+            # "frontend_zone": get_frontend_zone(zone),
             **payload
         }
     }
@@ -66,7 +74,7 @@ def update_file_operation_status_v2(session_id, job_id, zone, status, payload={}
 
 
 def update_file_operation_logs(owner, operator, input_file_path, output_file_path,
-                               file_size, project_code, generate_id, operation_type="data_transfer", extra=None):
+                               file_size, project_code, operation_type="data_transfer", extra=None):
     '''
     Endpoint
     url_audit_log = ConfigClass.PROVENANCE_SERVICE + 'audit-logs'

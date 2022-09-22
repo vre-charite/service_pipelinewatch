@@ -1,3 +1,23 @@
+# Copyright 2022 Indoc Research
+# 
+# Licensed under the EUPL, Version 1.2 or – as soon they
+# will be approved by the European Commission - subsequent
+# versions of the EUPL (the "Licence");
+# You may not use this work except in compliance with the
+# Licence.
+# You may obtain a copy of the Licence at:
+# 
+# https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12
+# 
+# Unless required by applicable law or agreed to in
+# writing, software distributed under the Licence is
+# distributed on an "AS IS" basis,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+# express or implied.
+# See the Licence for the specific language governing
+# permissions and limitations under the Licence.
+# 
+
 import datetime
 import os
 
@@ -75,7 +95,7 @@ def on_data_transfer_failed(_logger, annotations):
     labels = source_node['labels']
     resource_type = get_resource_type(labels)
     _logger.info("resource_type: " + str(resource_type))
-    zone = 'vrecore'
+    zone = ConfigClass.CORE_ZONE_LABEL.lower()
     res_update_status = update_file_operation_status_v2(session_id, job_id, zone,
         EActionState.TERMINATED.name,
         payload={"message": "pipeline failed."})
@@ -88,13 +108,13 @@ def on_single_file_transferred(_logger, annotations, source_node):
     bukcet_name = "core-" + project_code
     project_response = http_query_node('Container', {"code": project_code})
     project_info = project_response.json()[0]
-    generate_id = annotations.get("generate_id", "undefined")
+    dcm_id = annotations.get("dcm_id", "undefined")
     uploader = annotations.get("uploader")
     session_id = annotations.get('event_payload_session_id', 'default_session')
     job_id = annotations.get('event_payload_job_id', 'default_job')
     operator = annotations.get('event_payload_operator', 'admin')
     unix_process_time = datetime.datetime.utcnow().timestamp()
-    zone = 'vrecore'
+    zone = ConfigClass.CORE_ZONE_LABEL.lower()
 
     # get task payloads
     url = ConfigClass.DATA_OPS_UT + "tasks"
@@ -116,7 +136,7 @@ def on_single_file_transferred(_logger, annotations, source_node):
     output_path = os.path.dirname(output_full_path)
 
     if versioning == '':
-        minio_cli = Minio_Client(ConfigClass)
+        minio_cli = Minio_Client()
         object_stat = minio_cli.client.stat_object(bukcet_name, output_full_path)
         _logger.debug("Minio versioning=======================" + object_stat.version_id)
         versioning = object_stat.version_id
@@ -149,7 +169,7 @@ def on_single_file_transferred(_logger, annotations, source_node):
         zone,
         project_code,
         [tag for tag in source_node.get('tags', []) if tag != ConfigClass.copied_with_approval],
-        generate_id,
+        dcm_id,
         operator,
         from_parents=from_parents,
         process_pipeline=EPipelineName.data_transfer.name,
@@ -191,17 +211,16 @@ def on_single_file_transferred(_logger, annotations, source_node):
     res_update_audit_logs = update_file_operation_logs(
         uploader,
         operator,
-        os.path.join('Greenroom', input_full_path),
-        os.path.join('VRECore', output_full_path),
+        os.path.join(ConfigClass.GR_ZONE_LABEL, input_full_path),
+        os.path.join(ConfigClass.CORE_ZONE_LABEL, output_full_path),
         source_node.get('file_size', 0),
-        project_code,
-        generate_id,
+        project_code
     )
     _logger.debug(f'res_update_audit_logs: {res_update_audit_logs.status_code}')
 
 
 def copy_zippreview(old_geid, new_geid):
-    url = ConfigClass.DATA_OPS_GR + "archive"
+    url = ConfigClass.DATA_OPS_UT + "archive"
     get_params = {
         "file_geid": old_geid
     }
@@ -212,12 +231,11 @@ def copy_zippreview(old_geid, new_geid):
         raise Exception(response_get.text)
     json_response_get = response_get.json()
     archive_preview = json_response_get['result']
-    post_url = ConfigClass.DATA_OPS_GR + "archive"
     post_json = {
         "file_geid": new_geid,
         "archive_preview": archive_preview
     }
-    post_response = requests.post(url=post_url, json=post_json)
+    post_response = requests.post(url=url, json=post_json)
     if post_response.status_code != 200:
         raise Exception(post_response.text)
 

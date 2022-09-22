@@ -1,3 +1,23 @@
+# Copyright 2022 Indoc Research
+# 
+# Licensed under the EUPL, Version 1.2 or – as soon they
+# will be approved by the European Commission - subsequent
+# versions of the EUPL (the "Licence");
+# You may not use this work except in compliance with the
+# Licence.
+# You may obtain a copy of the Licence at:
+# 
+# https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12
+# 
+# Unless required by applicable law or agreed to in
+# writing, software distributed under the Licence is
+# distributed on an "AS IS" basis,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+# express or implied.
+# See the Licence for the specific language governing
+# permissions and limitations under the Licence.
+# 
+
 from kubernetes import watch
 from utils.meta_data_operations import \
     store_file_meta_data_v2
@@ -42,8 +62,6 @@ class StreamWatcher:
                         job_name + ": " + my_final_status)
                     if my_final_status == 'succeeded':
                         annotations = job.spec.template.metadata.annotations
-                        # self._on_dicom_edit_succeed(
-                        #     pipeline, job_name, annotations)
                         self.__delete_job(job_name)
                     else:
                         self._logger.warning("Terminating creating metadata")
@@ -94,118 +112,6 @@ class StreamWatcher:
             if ConfigClass.env == 'test':
                 raise
 
-    def _on_dicom_edit_succeed(self, pipeline, job_name, annotations):
-        self.__logger_debug.debug(
-            '_on_dicom_edit_succeed Triggered----' + datetime.datetime.now().isoformat())
-        input_location = annotations['input_file']
-
-        try:
-            # Get parent folder
-            payload = {
-                "label": "own",
-                "start_label": "Folder",
-                "end_label": "File",
-                "end_params": {
-                    "location": input_location,
-                }
-            }
-            response = requests.post(
-                ConfigClass.NEO4J_SERVICE + "relations/query", json=payload)
-            if response.json():
-                parent_folder_geid = response.json(
-                )[0]["start_node"]["global_entity_id"]
-            else:
-                parent_folder_geid = None
-        except Exception as e:
-            self.__logger_debug.debug('Error getting parent_folder: ' + str(e))
-
-        try:
-            # Get input file node
-            payload = {
-                "location": input_location
-            }
-            response = requests.post(ConfigClass.NEO4J_SERVICE + "nodes/File/query", json=payload)
-            parent_node = response.json()[0]
-            self.__logger_debug.debug(f'Got parent node {parent_node}')
-        except Exception as e:
-            error_msg = f"Error getting parent_node on dicom pipeline: {str(e)}"
-            self.__logger_debug.debug(error_msg)
-            raise Exception(error_msg)
-
-        output_path = self.parse_minio_location(annotations['output_path'])["path"]
-        uploader = annotations.get("uploader", 'admin')
-        file_data = self.parse_minio_location(input_location)
-        raw_file_name = file_data["path"].split('/')[-1]
-        split_raw_file_name = os.path.splitext(raw_file_name)
-        file_name = split_raw_file_name[0] + '_edited' + split_raw_file_name[1]
-        file_path = output_path + "/" + file_name
-        unix_process_time = datetime.datetime.utcnow().timestamp()
-        zone = "greenroom"
-
-        nfs_output_path = '/'.join(output_path.split("/")[6:])
-        nfs_output_path = ConfigClass.NFS_ROOT_PATH + nfs_output_path
-
-        generate_id = annotations.get("event_payload_generate_id", "undefined")
-        processed_file_size = 0
-        mc = Minio_Client(ConfigClass)
-        try:
-            result = mc.client.stat_object(file_data["bucket"], output_path + "/" + file_name)
-            processed_file_size = result.size
-            version_id = result.version_id
-        except Exception as e:
-            self._logger.warning("Error when getting file size")
-            self._logger.warning(str(e))
-            self._logger.warning("Terminating creating metadata")
-
-
-        if processed_file_size > 0:
-            self.__logger_debug.debug(
-                "action triggered: " + datetime.datetime.now().isoformat())
-            # v2 API
-            from_parents = {
-                "global_entity_id": parent_node["global_entity_id"],
-            }
-
-            file_type = os.path.splitext(file_name)[1]
-            nfs_file_path = ConfigClass.MINIO_TMP_PATH + output_path + "/" + file_name
-            if file_type == ".zip":
-                zip_preview = generate_zip_preview(
-                    nfs_file_path, 
-                    file_data["bucket"], 
-                    output_path + "/" + file_name, 
-                    self._logger
-                )
-            created_node = store_file_meta_data_v2(
-                uploader,
-                file_name,
-                nfs_output_path,
-                processed_file_size,
-                'processed by dicom_edit',
-                zone,
-                parent_node["project_code"],
-                [],
-                generate_id,
-                'auto_trigger',
-                from_parents=from_parents,
-                process_pipeline=pipeline,
-                parent_folder_geid=parent_folder_geid,
-                object_path=output_path + "/" + file_name,
-                bucket=file_data["bucket"],
-                version_id=version_id
-            )
-
-            if file_type == ".zip":
-                save_preview(zip_preview, created_node["global_entity_id"], self._logger)
-                os.remove(nfs_file_path)
-
-            create_lineage_v3(
-                parent_node["global_entity_id"],
-                created_node["global_entity_id"],
-                parent_node["project_code"],
-                pipeline,
-                'dicom_edit Processed',
-                unix_process_time
-            )
 
     def __delete_job(self, job_name):
         try:
@@ -222,7 +128,6 @@ class StreamWatcher:
         return stream
 
     def parse_minio_location(self, path):
-        # parse from format minio://http://10.3.7.220/gr-generate/admin/generate_folder/ABC-1234_OIP.WH4UEecUNFLkLRAy3cbgQQHaEK.jpg
         path = path.replace("minio://", "").replace("http://", "").split("/")
         bucket = path[1]
         path = '/'.join(path[2:])

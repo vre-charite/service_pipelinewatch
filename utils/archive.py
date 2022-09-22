@@ -1,3 +1,23 @@
+# Copyright 2022 Indoc Research
+# 
+# Licensed under the EUPL, Version 1.2 or – as soon they
+# will be approved by the European Commission - subsequent
+# versions of the EUPL (the "Licence");
+# You may not use this work except in compliance with the
+# Licence.
+# You may obtain a copy of the Licence at:
+# 
+# https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12
+# 
+# Unless required by applicable law or agreed to in
+# writing, software distributed under the Licence is
+# distributed on an "AS IS" basis,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+# express or implied.
+# See the Licence for the specific language governing
+# permissions and limitations under the Licence.
+# 
+
 import zipfile
 from zipfile import ZipFile
 from config import ConfigClass
@@ -38,7 +58,7 @@ def generate_zip_preview(nfs_file_path, bucket, minio_path, logger):
     archive_preview = None
     try:
         # Download file to generate preview
-        mc = Minio_Client(ConfigClass)
+        mc = Minio_Client()
         mc.client.fget_object(bucket, minio_path, nfs_file_path)
         logger.info(f'Saved tmp file to {nfs_file_path} to generate zip preview')
         archive_preview = parse_zip(nfs_file_path)
@@ -54,7 +74,6 @@ def save_preview(zip_preview, file_geid, logger):
             "archive_preview": zip_preview,
             "file_geid": file_geid,
         }
-        response = requests.post(ConfigClass.DATA_OPS_GR + "archive", json=payload)
+        response = requests.post(ConfigClass.DATA_OPS_UT + "archive", json=payload)
     except Exception as e:
-        geid = created_node["global_entity_id"]
-        logger.error(f'Error calling dataops gr for file preview for {geid}: {str(e)}')
+        logger.error(f'Error calling dataops gr for file preview for {file_geid}: {str(e)}')
